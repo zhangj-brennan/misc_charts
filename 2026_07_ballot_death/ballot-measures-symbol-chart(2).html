@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Death Penalty Ballot Measures Over Time</title>
+  <style>
+    :root {
+      --chart-text: #111111;
+      --chart-muted: #666666;
+      --chart-grid: #d7d7d7;
+      --chart-baseline: #111111;
+      --chart-passed: #007194;
+      --chart-failed: #ed1c24;
+      --chart-background: #ffffff;
+      --chart-tooltip-background: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--chart-background);
+      color: var(--chart-text);
+      font-family: "Benton Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+
+    .ballot-chart-page {
+      width: min(1200px, 100%);
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+
+    .ballot-chart-title {
+      margin: 0 0 8px;
+      font-size: clamp(26px, 4vw, 42px);
+      line-height: 1.08;
+    }
+
+    .ballot-chart-deck {
+      max-width: 760px;
+      margin: 0 0 22px;
+      color: var(--chart-muted);
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .ballot-chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 22px;
+      margin-bottom: 14px;
+      font-size: 14px;
+    }
+
+    .ballot-chart-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .ballot-chart-legend-dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .ballot-chart-legend-dot.passed {
+      background: var(--chart-passed);
+    }
+
+    .ballot-chart-legend-dot.failed {
+      background: var(--chart-failed);
+    }
+
+    .ballot-chart-wrap {
+      position: relative;
+      width: 100%;
+      overflow-x: auto;
+      border-top: 1px solid #eeeeee;
+      border-bottom: 1px solid #eeeeee;
+    }
+
+    #ballotChart {
+      display: block;
+      min-width: 760px;
+      width: 100%;
+      height: auto;
+    }
+
+    .ballot-chart-tooltip {
+      position: fixed;
+      z-index: 20;
+      width: max-content;
+      max-width: min(300px, calc(100vw - 32px));
+      padding: 10px 12px;
+      border: 1px solid #bdbdbd;
+      background: var(--chart-tooltip-background);
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
+      font-size: 13px;
+      line-height: 1.4;
+      pointer-events: none;
+      opacity: 0;
+      transform: translate(-50%, calc(-100% - 14px));
+      transition: opacity 120ms ease;
+    }
+
+    .ballot-chart-tooltip strong {
+      display: block;
+      margin-bottom: 3px;
+      font-size: 14px;
+    }
+
+    .ballot-chart-source {
+      margin: 12px 0 0;
+      color: var(--chart-muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .axis-label,
+    .section-label,
+    .year-label {
+      font-family: "Benton Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      fill: var(--chart-text);
+    }
+
+    .section-label {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .year-label {
+      font-size: 12px;
+    }
+
+    .grid-line {
+      stroke: var(--chart-grid);
+      stroke-width: 1;
+      stroke-dasharray: 2 4;
+    }
+
+    .baseline {
+      stroke: var(--chart-baseline);
+      stroke-width: 2;
+    }
+
+    .measure-symbol {
+      stroke: #ffffff;
+      stroke-width: 1.5;
+      cursor: pointer;
+      transition: r 100ms ease, opacity 100ms ease;
+    }
+
+    .measure-symbol:hover,
+    .measure-symbol:focus {
+      stroke: #111111;
+      stroke-width: 2;
+      outline: none;
+    }
+
+    @media (max-width: 640px) {
+      .ballot-chart-page {
+        padding: 24px 14px 36px;
+      }
+
+      .ballot-chart-title {
+        font-size: 30px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="ballot-chart-page">
+    <h1 class="ballot-chart-title">Death Penalty Ballot Measures Over Time</h1>
+    <p class="ballot-chart-deck">
+      Measures seeking to abolish the death penalty appear above the center line.
+      Measures seeking to reinstate it appear below. Color indicates whether the measure passed.
+    </p>
+
+    <div class="ballot-chart-legend" aria-label="Chart legend">
+      <span class="ballot-chart-legend-item">
+        <span class="ballot-chart-legend-dot passed"></span>
+        Passed
+      </span>
+      <span class="ballot-chart-legend-item">
+        <span class="ballot-chart-legend-dot failed"></span>
+        Did not pass
+      </span>
+    </div>
+
+    <div class="ballot-chart-wrap">
+      <svg id="ballotChart" role="img" aria-labelledby="chartTitle chartDescription"></svg>
+      <div id="ballotTooltip" class="ballot-chart-tooltip" role="tooltip"></div>
+    </div>
+
+    <p class="ballot-chart-source"><strong>Source:</strong> Add source information here.</p>
+  </main>
+
+  <script>
+    const CSV_FILE = "ballot-measures.csv";
+
+    function parseCSV(text) {
+      const rows = [];
+      let row = [];
+      let field = "";
+      let insideQuotes = false;
+
+      for (let i = 0; i < text.length; i++) {
+        const character = text[i];
+        const nextCharacter = text[i + 1];
+
+        if (character === '"') {
+          if (insideQuotes && nextCharacter === '"') {
+            field += '"';
+            i++;
+          } else {
+            insideQuotes = !insideQuotes;
+          }
+        } else if (character === "," && !insideQuotes) {
+          row.push(field.trim());
+          field = "";
+        } else if ((character === "\n" || character === "\r") && !insideQuotes) {
+          if (character === "\r" && nextCharacter === "\n") {
+            i++;
+          }
+
+          row.push(field.trim());
+          field = "";
+
+          if (row.some(value => value !== "")) {
+            rows.push(row);
+          }
+
+          row = [];
+        } else {
+          field += character;
+        }
+      }
+
+      row.push(field.trim());
+
+      if (row.some(value => value !== "")) {
+        rows.push(row);
+      }
+
+      if (!rows.length) return [];
+
+      const headers = rows[0].map(header => header.trim());
+
+      return rows.slice(1).map(values => {
+        const item = {};
+
+        headers.forEach((header, index) => {
+          item[header] = values[index] || "";
+        });
+
+        return item;
+      });
+    }
+
+    function isYes(value) {
+      return String(value || "").trim().toLowerCase() === "yes";
+    }
+
+    function prepareData(rows) {
+      const prepared = [];
+
+      rows.forEach((row, rowIndex) => {
+        const year = Number(row.Year);
+        if (!Number.isFinite(year)) return;
+
+        const base = {
+          id: rowIndex,
+          state: row.State || "Unknown",
+          year,
+          passed: isYes(row["Passed?"])
+        };
+
+        if (isYes(row["Ballot Measure to Abolish Death Penalty?"])) {
+          prepared.push({
+            ...base,
+            type: "abolish",
+            typeLabel: "Abolish the death penalty"
+          });
+        }
+
+        if (isYes(row["Ballot Measure to Reinstate Death Penalty?"])) {
+          prepared.push({
+            ...base,
+            id: `${rowIndex}-reinstate`,
+            type: "reinstate",
+            typeLabel: "Reinstate the death penalty"
+          });
+        }
+      });
+
+      return prepared;
+    }
+
+    function createSvgElement(name, attributes = {}) {
+      const element = document.createElementNS("http://www.w3.org/2000/svg", name);
+
+      Object.entries(attributes).forEach(([key, value]) => {
+        element.setAttribute(key, value);
+      });
+
+      return element;
+    }
+
+    function renderChart(rows) {
+      const data = prepareData(rows);
+
+      const svg = document.getElementById("ballotChart");
+      const tooltip = document.getElementById("ballotTooltip");
+      const wrapper = document.querySelector(".ballot-chart-wrap");
+
+      svg.innerHTML = "";
+
+      if (!data.length) {
+        svg.setAttribute("viewBox", "0 0 900 300");
+        const emptyText = createSvgElement("text", {
+          x: 450,
+          y: 150,
+          "text-anchor": "middle",
+          class: "axis-label"
+        });
+        emptyText.textContent = "No valid ballot measure rows found.";
+        svg.appendChild(emptyText);
+        return;
+      }
+
+      const width = Math.max(wrapper.clientWidth, 760);
+      const height = 520;
+      const margin = { top: 68, right: 35, bottom: 70, left: 120 };
+      const plotLeft = margin.left;
+      const plotRight = width - margin.right;
+      const plotTop = margin.top;
+      const plotBottom = height - margin.bottom;
+      const baselineY = Math.round((plotTop + plotBottom) / 2);
+      const symbolRadius = 8;
+      const stackGap = 20;
+
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      svg.setAttribute("width", width);
+      svg.setAttribute("height", height);
+
+      const title = createSvgElement("title", { id: "chartTitle" });
+      title.textContent = "Death penalty ballot measures over time";
+      svg.appendChild(title);
+
+      const description = createSvgElement("desc", { id: "chartDescription" });
+      description.textContent =
+        "A symbol chart with years along the horizontal axis. Measures to abolish the death penalty are above the baseline and measures to reinstate it are below. Blue symbols passed and red symbols did not pass.";
+      svg.appendChild(description);
+
+      const years = data.map(d => d.year);
+      let minYear = Math.min(...years);
+      let maxYear = Math.max(...years);
+
+      if (minYear === maxYear) {
+        minYear -= 1;
+        maxYear += 1;
+      }
+
+      const yearPadding = Math.max(1, Math.round((maxYear - minYear) * 0.025));
+      const domainMin = minYear - yearPadding;
+      const domainMax = maxYear + yearPadding;
+
+      const xScale = year =>
+        plotLeft + ((year - domainMin) / (domainMax - domainMin)) * (plotRight - plotLeft);
+
+      const range = maxYear - minYear;
+      let tickStep = 10;
+      if (range <= 20) tickStep = 2;
+      else if (range <= 50) tickStep = 5;
+      else if (range <= 120) tickStep = 10;
+      else tickStep = 20;
+
+      const firstTick = Math.ceil(minYear / tickStep) * tickStep;
+      const tickYears = [];
+      for (let year = firstTick; year <= maxYear; year += tickStep) {
+        tickYears.push(year);
+      }
+
+      if (!tickYears.includes(minYear)) tickYears.unshift(minYear);
+      if (!tickYears.includes(maxYear)) tickYears.push(maxYear);
+
+      [...new Set(tickYears)].sort((a, b) => a - b).forEach(year => {
+        const x = xScale(year);
+
+        const gridLine = createSvgElement("line", {
+          x1: x,
+          y1: plotTop,
+          x2: x,
+          y2: plotBottom,
+          class: "grid-line"
+        });
+        svg.appendChild(gridLine);
+
+        const yearLabel = createSvgElement("text", {
+          x,
+          y: plotBottom + 28,
+          "text-anchor": "middle",
+          class: "year-label"
+        });
+        yearLabel.textContent = year;
+        svg.appendChild(yearLabel);
+      });
+
+      const baseline = createSvgElement("line", {
+        x1: plotLeft,
+        y1: baselineY,
+        x2: plotRight,
+        y2: baselineY,
+        class: "baseline"
+      });
+      svg.appendChild(baseline);
+
+      const abolishLabel = createSvgElement("text", {
+        x: plotLeft - 18,
+        y: plotTop + 12,
+        "text-anchor": "end",
+        class: "section-label"
+      });
+      abolishLabel.textContent = "Abolish";
+      svg.appendChild(abolishLabel);
+
+      const reinstateLabel = createSvgElement("text", {
+        x: plotLeft - 18,
+        y: plotBottom - 4,
+        "text-anchor": "end",
+        class: "section-label"
+      });
+      reinstateLabel.textContent = "Reinstate";
+      svg.appendChild(reinstateLabel);
+
+      const axisTitle = createSvgElement("text", {
+        x: (plotLeft + plotRight) / 2,
+        y: height - 18,
+        "text-anchor": "middle",
+        class: "axis-label",
+        "font-size": "13",
+        "font-weight": "700"
+      });
+      axisTitle.textContent = "Year";
+      svg.appendChild(axisTitle);
+
+      const groupedCounts = new Map();
+
+      const positioned = data
+        .slice()
+        .sort((a, b) => a.year - b.year || a.state.localeCompare(b.state))
+        .map(d => {
+          const groupKey = `${d.year}-${d.type}`;
+          const stackIndex = groupedCounts.get(groupKey) || 0;
+          groupedCounts.set(groupKey, stackIndex + 1);
+
+          const direction = d.type === "abolish" ? -1 : 1;
+          const y = baselineY + direction * (42 + stackIndex * stackGap);
+
+          return { ...d, x: xScale(d.year), y };
+        });
+
+      positioned.forEach(d => {
+        const circle = createSvgElement("circle", {
+          cx: d.x,
+          cy: d.y,
+          r: symbolRadius,
+          fill: d.passed ? "var(--chart-passed)" : "var(--chart-failed)",
+          class: "measure-symbol",
+          tabindex: "0",
+          role: "img",
+          "aria-label": `${d.state}, ${d.year}, ${d.typeLabel}, ${d.passed ? "passed" : "did not pass"}`
+        });
+
+        function showTooltip(event) {
+          tooltip.innerHTML = `
+            <strong>${d.state}, ${d.year}</strong>
+            ${d.typeLabel}<br>
+            <span>${d.passed ? "Passed" : "Did not pass"}</span>
+          `;
+
+          const clientX = event.clientX ?? circle.getBoundingClientRect().left;
+          const clientY = event.clientY ?? circle.getBoundingClientRect().top;
+
+          tooltip.style.left = `${clientX}px`;
+          tooltip.style.top = `${clientY}px`;
+          tooltip.style.opacity = "1";
+        }
+
+        function hideTooltip() {
+          tooltip.style.opacity = "0";
+        }
+
+        circle.addEventListener("mouseenter", showTooltip);
+        circle.addEventListener("mousemove", showTooltip);
+        circle.addEventListener("mouseleave", hideTooltip);
+        circle.addEventListener("focus", showTooltip);
+        circle.addEventListener("blur", hideTooltip);
+
+        svg.appendChild(circle);
+      });
+    }
+
+    let loadedRows = [];
+
+    async function loadChartData() {
+      const svg = document.getElementById("ballotChart");
+
+      try {
+        const response = await fetch(CSV_FILE);
+
+        if (!response.ok) {
+          throw new Error(`Could not load ${CSV_FILE}: ${response.status}`);
+        }
+
+        const csvText = await response.text();
+        loadedRows = parseCSV(csvText);
+        renderChart(loadedRows);
+      } catch (error) {
+        console.error(error);
+
+        svg.setAttribute("viewBox", "0 0 900 300");
+        svg.innerHTML = "";
+
+        const errorText = createSvgElement("text", {
+          x: 450,
+          y: 135,
+          "text-anchor": "middle",
+          class: "axis-label",
+          "font-size": "15",
+          "font-weight": "700"
+        });
+        errorText.textContent = "The CSV file could not be loaded.";
+        svg.appendChild(errorText);
+
+        const helpText = createSvgElement("text", {
+          x: 450,
+          y: 165,
+          "text-anchor": "middle",
+          class: "axis-label",
+          "font-size": "13"
+        });
+        helpText.textContent = `Place ${CSV_FILE} in the same folder and open this page through a local server.`;
+        svg.appendChild(helpText);
+      }
+    }
+
+    loadChartData();
+
+    window.addEventListener("resize", () => {
+      if (loadedRows.length) {
+        renderChart(loadedRows);
+      }
+    });
+  </script>
+</body>
+</html>
