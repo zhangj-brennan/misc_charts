@@ -660,15 +660,15 @@ function renderHorizontalChart(data, svg, tooltip, wrapper) {
     }));
 
     const caseLabel = createSvgElement("text", {
-      x: x + (index === 0 ? -6 : 6),
+      x: x + (index === 0 ? 2 : -2),
       y: plotTop - 8,
       "text-anchor": index === 0 ? "end" : "start",
       fill: index === 0 ? "#6a3d9a" : "#1f78b4",
       "font-size": 11,
-      "font-weight": 700,
+      "font-weight": 100,
       class: "case-marker-label"
     });
-    caseLabel.textContent = `${marker.label} (${marker.year})`;
+    caseLabel.textContent = `${marker.label}`;
     svg.appendChild(caseLabel);
   });
 }
@@ -925,7 +925,7 @@ function renderVerticalChart(data, svg, tooltip, wrapper) {
       "font-weight": 700,
       class: "case-marker-label"
     });
-    caseLabel.textContent = `${marker.label} (${marker.year})`;
+    caseLabel.textContent = `${marker.label}`;
     svg.appendChild(caseLabel);
   });
 }
