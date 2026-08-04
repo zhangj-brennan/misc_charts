@@ -466,7 +466,7 @@ const caseMarkers = [
 function renderHorizontalChart(data, svg, tooltip, wrapper) {
   const width = Math.max(wrapper.clientWidth, 760);
   const height = 200;
-  const margin = { top: 30, right: 35, bottom: 40, left: 60 };
+  const margin = { top: 44, right: 35, bottom: 40, left: 60 };
   const plotLeft = margin.left;
   const plotRight = width - margin.right;
   const plotTop = margin.top;
@@ -548,6 +548,39 @@ function renderHorizontalChart(data, svg, tooltip, wrapper) {
       svg.appendChild(yearLabel);
     });
 
+  /*
+    Add the two Supreme Court case markers after the
+    regular grid lines, but before the ballot circles.
+  */
+  caseMarkers.forEach((marker, index) => {
+    const x = xScale(marker.year);
+
+    svg.appendChild(
+      createSvgElement("line", {
+        x1: x,
+        y1: plotTop,
+        x2: x,
+        y2: plotBottom,
+        stroke: "#000000",
+        "stroke-width": 2,
+        "stroke-dasharray": "5 3",
+        class: "case-marker-line"
+      })
+    );
+
+    const caseLabel = createSvgElement("text", {
+      x: x + (index === 0 ? -5 : 5),
+      y: plotTop - 7,
+      "text-anchor": index === 0 ? "end" : "start",
+      fill: "#000000",
+      "font-size": 11,
+      "font-weight": 700,
+      class: "case-marker-label"
+    });
+
+    caseLabel.textContent = `${marker.label} (${marker.year})`;
+    svg.appendChild(caseLabel);
+  });
 
   svg.appendChild(
     createSvgElement("line", {
@@ -645,32 +678,6 @@ function renderHorizontalChart(data, svg, tooltip, wrapper) {
       addTooltipBehavior(circle, d, tooltip);
       svg.appendChild(circle);
     });
-
-  caseMarkers.forEach((marker, index) => {
-    const x = xScale(marker.year);
-
-    svg.appendChild(createSvgElement("line", {
-      x1: x,
-      y1: plotTop,
-      x2: x,
-      y2: plotBottom,
-      stroke: index === 0 ? "#6a3d9a" : "#1f78b4",
-      "stroke-width": 3,
-      class: "case-marker-line"
-    }));
-
-    const caseLabel = createSvgElement("text", {
-      x: x + (index === 0 ? -6 : 6),
-      y: plotTop - 8,
-      "text-anchor": index === 0 ? "end" : "start",
-      fill: index === 0 ? "#6a3d9a" : "#1f78b4",
-      "font-size": 11,
-      "font-weight": 700,
-      class: "case-marker-label"
-    });
-    caseLabel.textContent = `${marker.label} (${marker.year})`;
-    svg.appendChild(caseLabel);
-  });
 }
 
 function renderVerticalChart(data, svg, tooltip, wrapper) {
@@ -849,6 +856,42 @@ function renderVerticalChart(data, svg, tooltip, wrapper) {
       svg.appendChild(yearLabel);
     });
 
+  /*
+    Add horizontal Supreme Court case markers.
+    These are drawn before the circles so the symbols
+    remain visible above the marker lines.
+  */
+  caseMarkers.forEach((marker, index) => {
+    const y = yScale(marker.year);
+
+    svg.appendChild(
+      createSvgElement("line", {
+        x1: margin.left,
+        y1: y,
+        x2: width - margin.right,
+        y2: y,
+        stroke: "#000000",
+        "stroke-width": 2,
+        "stroke-dasharray": "5 3",
+        class: "case-marker-line"
+      })
+    );
+
+    const caseLabel = createSvgElement("text", {
+      x: width - margin.right - 2,
+      y: y - 6,
+      "text-anchor": "end",
+      fill: "#000000",
+      "font-size": 11,
+      "font-weight": 700,
+      class: "case-marker-label"
+    });
+
+    caseLabel.textContent =
+      `${marker.label} (${marker.year})`;
+
+    svg.appendChild(caseLabel);
+  });
 
   const groupedCounts = new Map();
 
@@ -902,32 +945,6 @@ function renderVerticalChart(data, svg, tooltip, wrapper) {
       addTooltipBehavior(circle, d, tooltip);
       svg.appendChild(circle);
     });
-
-  caseMarkers.forEach((marker, index) => {
-    const y = yScale(marker.year);
-
-    svg.appendChild(createSvgElement("line", {
-      x1: margin.left,
-      y1: y,
-      x2: width - margin.right,
-      y2: y,
-      stroke: index === 0 ? "#6a3d9a" : "#1f78b4",
-      "stroke-width": 3,
-      class: "case-marker-line"
-    }));
-
-    const caseLabel = createSvgElement("text", {
-      x: width - margin.right - 2,
-      y: y - 6,
-      "text-anchor": "end",
-      fill: index === 0 ? "#6a3d9a" : "#1f78b4",
-      "font-size": 11,
-      "font-weight": 700,
-      class: "case-marker-label"
-    });
-    caseLabel.textContent = `${marker.label} (${marker.year})`;
-    svg.appendChild(caseLabel);
-  });
 }
 
     function renderChart(rows) {
