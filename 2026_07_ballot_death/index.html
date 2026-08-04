@@ -475,15 +475,13 @@
       else if (range <= 120) tickStep = 10;
       else tickStep = 10;
 
-      const firstTick = Math.ceil(minYear / tickStep) * tickStep;
-      const tickYears = [];
-      for (let year = firstTick; year <= maxYear; year += tickStep) {
-        tickYears.push(year);
-      }
+     const axisMin = Math.floor(minYear / tickStep) * tickStep;
+const axisMax = Math.ceil(maxYear / tickStep) * tickStep;
 
-      if (!tickYears.includes(minYear)) tickYears.unshift(minYear);
-      if (!tickYears.includes(maxYear)) tickYears.push(maxYear);
-
+const tickYears = [];
+for (let year = axisMin; year <= axisMax; year += tickStep) {
+  tickYears.push(year);
+}
       [...new Set(tickYears)].sort((a, b) => a - b).forEach(year => {
         const x = xScale(year);
 
@@ -609,7 +607,7 @@
       svg.setAttribute("height", height);
 
       const yScale = year =>
-        plotTop + ((year - minYear) / (maxYear - minYear)) * plotHeight;
+  plotTop + ((year - axisMin) / (axisMax - axisMin)) * plotHeight;
 
       svg.appendChild(createSvgElement("line", {
         x1: axisX,
