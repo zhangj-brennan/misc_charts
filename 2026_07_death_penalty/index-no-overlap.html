@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Death Penalty Ballot Measures Over Time</title>
+  <title>Death Penalty Ballot Measures (No Overlap)</title>
   <style>
     .case-marker-line {
   stroke: #000000;
@@ -453,6 +453,112 @@
       circle.addEventListener("focus", showTooltip);
       circle.addEventListener("blur", hideTooltip);
     }
+// Pile placement: a small physics simulation where each circle is pulled
+// toward its year and toward the baseline, and pushed out of any circle it
+// overlaps. Circles settle touching each other and resting on the axis,
+// shifted a few pixels from their exact year where needed.
+// Measures placed in a specific row (1 = against the axis, 2 = next row out)
+const rowOverrides = [
+  { state: "Colorado", year: 1974, type: "reinstate", row: 2 }
+];
+
+function rowFor(d) {
+  const match = rowOverrides.find(
+    o => o.state === d.state.trim() && o.year === d.year && o.type === d.type
+  );
+  return match ? match.row : 1;
+}
+
+function measureRadius(d, symbolRadius) {
+  return d.passed ? symbolRadius + 2 : symbolRadius;
+}
+
+function simulatePile(items, getPos, getRadius, axisGap, padding = 0.5) {
+  // Distance between row centers, sized for the largest circle
+  const rowStep = 2 * Math.max(...items.map(getRadius), 0) + 2 + padding;
+
+  // r includes the 1px of stroke drawn outside the radius
+  const nodes = items.map((item, i) => {
+    const r = getRadius(item) + 1;
+    return {
+      id: item.id,
+      target: getPos(item),
+      pos: getPos(item),
+      offset: r + axisGap + i * 0.01,
+      r,
+      floor: r + axisGap + (rowFor(item) - 1) * rowStep
+    };
+  });
+
+  const resolveCollisions = () => {
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i];
+        const b = nodes[j];
+        const minDist = a.r + b.r + padding;
+        let dx = b.pos - a.pos;
+        let dy = b.offset - a.offset;
+        let dist = Math.hypot(dx, dy);
+        if (dist >= minDist) continue;
+        if (dist < 1e-6) {
+          dx = 0;
+          dy = 1;
+          dist = 1;
+        }
+        const push = (minDist - dist) / 2;
+        const ux = dx / dist;
+        const uy = dy / dist;
+        a.pos -= ux * push;
+        a.offset -= uy * push;
+        b.pos += ux * push;
+        b.offset += uy * push;
+      }
+    }
+    nodes.forEach(n => {
+      n.offset = Math.max(n.offset, n.floor);
+    });
+  };
+
+  for (let tick = 0; tick < 300; tick++) {
+    nodes.forEach(n => {
+      n.pos += (n.target - n.pos) * 0.25;
+      n.offset += (n.floor - n.offset) * 0.15;
+    });
+    for (let pass = 0; pass < 4; pass++) resolveCollisions();
+  }
+
+  // Final passes with no pull, so nothing is left overlapping
+  for (let pass = 0; pass < 20; pass++) resolveCollisions();
+
+  return nodes;
+}
+
+function computeSwarmBySide(data, getPos, symbolRadius, axisGap) {
+  const sorted = data
+    .slice()
+    .sort((a, b) => a.year - b.year || a.state.localeCompare(b.state));
+
+  const positions = new Map();
+  const offsets = new Map();
+  const maxExtent = { abolish: 0, reinstate: 0 };
+
+  ["abolish", "reinstate"].forEach(type => {
+    const side = sorted.filter(d => d.type === type);
+    simulatePile(
+      side,
+      getPos,
+      d => measureRadius(d, symbolRadius),
+      axisGap
+    ).forEach(n => {
+      positions.set(n.id, n.pos);
+      offsets.set(n.id, n.offset);
+      maxExtent[type] = Math.max(maxExtent[type], n.offset + n.r);
+    });
+  });
+
+  return { positions, offsets, maxExtent };
+}
+
 const caseMarkers = [
   {
     year: 1972,
@@ -465,19 +571,15 @@ const caseMarkers = [
 ];
 function renderHorizontalChart(data, svg, tooltip, wrapper) {
   const width = Math.max(wrapper.clientWidth, 760);
-  const height = 200;
   const margin = { top: 30, right: 35, bottom: 40, left: 60 };
   const plotLeft = margin.left;
   const plotRight = width - margin.right;
   const plotTop = margin.top;
-  const plotBottom = height - margin.bottom;
-  const baselineY = Math.round((plotTop + plotBottom) / 2);
   const symbolRadius = 6;
-  const stackGap = (symbolRadius + 2) * 2;
-
-  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  svg.setAttribute("width", width);
-  svg.setAttribute("height", height);
+  // Circles pile directly against the baseline; the section labels
+  // sit in a band at the outer top and bottom edges of the plot
+  const axisGap = 1;
+  const labelBand = 22;
 
   const years = data.map(d => d.year);
   let minYear = Math.min(...years);
@@ -500,6 +602,27 @@ function renderHorizontalChart(data, svg, tooltip, wrapper) {
     plotLeft +
     ((year - domainMin) / (domainMax - domainMin)) *
       (plotRight - plotLeft);
+
+  const { positions, offsets, maxExtent } = computeSwarmBySide(
+    data,
+    d => xScale(d.year),
+    symbolRadius,
+    axisGap
+  );
+
+  // Size the chart so the tallest swarm on each side fits
+  const halfHeight = Math.max(
+    40,
+    maxExtent.abolish + labelBand,
+    maxExtent.reinstate + labelBand
+  );
+  const baselineY = Math.round(plotTop + halfHeight);
+  const plotBottom = baselineY + halfHeight;
+  const height = plotBottom + margin.bottom;
+
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("width", width);
+  svg.setAttribute("height", height);
 
   const range = maxYear - minYear;
   let tickStep = 5;
@@ -561,9 +684,12 @@ function renderHorizontalChart(data, svg, tooltip, wrapper) {
 
   const abolishLabel = createSvgElement("text", {
     x: 2,
-    y: baselineY - 4,
+    y: plotTop + 11,
     "text-anchor": "start",
-    class: "section-label"
+    class: "section-label",
+    stroke: "var(--chart-background)",
+    "stroke-width": 4,
+    "paint-order": "stroke"
   });
 
   abolishLabel.textContent =
@@ -573,14 +699,17 @@ function renderHorizontalChart(data, svg, tooltip, wrapper) {
 
   const reinstateLabel = createSvgElement("text", {
     x: 2,
-    y: baselineY + 14,
+    y: plotBottom - 4,
     "text-anchor": "start",
     class: "section-label",
-    fill: "var(--chart-reinstate)"
+    fill: "var(--chart-reinstate)",
+    stroke: "var(--chart-background)",
+    "stroke-width": 4,
+    "paint-order": "stroke"
   });
 
   reinstateLabel.textContent =
-    "Ballot Measures to Enact the Death Penalty";
+    "Ballot Measures to Enact, Expand, or Protect the Death Penalty";
 
   svg.appendChild(reinstateLabel);
 
@@ -596,8 +725,6 @@ function renderHorizontalChart(data, svg, tooltip, wrapper) {
   axisTitle.textContent = "Year";
   svg.appendChild(axisTitle);
 
-  const groupedCounts = new Map();
-
   data
     .slice()
     .sort(
@@ -606,19 +733,11 @@ function renderHorizontalChart(data, svg, tooltip, wrapper) {
         a.state.localeCompare(b.state)
     )
     .forEach(d => {
-      const groupKey = `${d.year}-${d.type}`;
-      const stackIndex =
-        groupedCounts.get(groupKey) || 0;
-
-      groupedCounts.set(groupKey, stackIndex + 1);
-
       const direction =
         d.type === "abolish" ? -1 : 1;
 
       const y =
-        baselineY +
-        direction *
-          (30 + stackIndex * stackGap);
+        baselineY + direction * offsets.get(d.id);
 
       const color =
         d.type === "abolish"
@@ -626,7 +745,7 @@ function renderHorizontalChart(data, svg, tooltip, wrapper) {
           : "var(--chart-reinstate)";
 
       const circle = createSvgElement("circle", {
-        cx: xScale(d.year),
+        cx: positions.get(d.id),
         cy: y,
         r: d.passed
           ? symbolRadius + 2
@@ -676,17 +795,15 @@ function renderHorizontalChart(data, svg, tooltip, wrapper) {
 function renderVerticalChart(data, svg, tooltip, wrapper) {
   const width = Math.max(wrapper.clientWidth, 280);
   const margin = {
-    top: 42,
+    top: 52,
     right: 14,
-    bottom: 28,
+    bottom: 8,
     left: 14
   };
 
   const axisX = Math.round(width / 2);
-  const labelGap = 28;
+  const labelGap = 6;
   const symbolRadius = 6;
-  const stackGap = 16;
-  const sideGap = 18;
 
   const years = data.map(d => d.year);
   let minYear = Math.min(...years);
@@ -715,7 +832,7 @@ function renderVerticalChart(data, svg, tooltip, wrapper) {
   const plotTop = margin.top;
 
   const availablePlotHeight =
-    600 - margin.top - margin.bottom;
+    610 - margin.top - margin.bottom;
 
   const plotHeight = Math.min(
     availablePlotHeight,
@@ -725,7 +842,7 @@ function renderVerticalChart(data, svg, tooltip, wrapper) {
   const plotBottom = plotTop + plotHeight;
 
   const height = Math.min(
-    600,
+    610,
     plotBottom + margin.bottom
   );
 
@@ -745,7 +862,7 @@ function renderVerticalChart(data, svg, tooltip, wrapper) {
   svg.appendChild(
     createSvgElement("line", {
       x1: axisX,
-      y1: plotTop,
+      y1: 14,
       x2: axisX,
       y2: plotBottom,
       class: "baseline"
@@ -754,7 +871,7 @@ function renderVerticalChart(data, svg, tooltip, wrapper) {
 
   const abolishLabel = createSvgElement("text", {
     x: axisX - labelGap,
-    y: 14,
+    y: 24,
     "text-anchor": "end",
     class: "section-label"
   });
@@ -781,7 +898,7 @@ function renderVerticalChart(data, svg, tooltip, wrapper) {
 
   const reinstateLabel = createSvgElement("text", {
     x: axisX + labelGap,
-    y: 14,
+    y: 24,
     "text-anchor": "start",
     class: "section-label",
     fill: "var(--chart-reinstate)"
@@ -807,7 +924,7 @@ function renderVerticalChart(data, svg, tooltip, wrapper) {
   );
 
   reinstateLine2.textContent =
-    "Enact the Death Penalty";
+    "Enact, Expand, or Protect the Death Penalty";
 
   reinstateLabel.appendChild(reinstateLine1);
   reinstateLabel.appendChild(reinstateLine2);
@@ -850,7 +967,15 @@ function renderVerticalChart(data, svg, tooltip, wrapper) {
     });
 
 
-  const groupedCounts = new Map();
+  const {
+    positions: verticalPositions,
+    offsets: verticalOffsets
+  } = computeSwarmBySide(
+    data,
+    d => yScale(d.year),
+    symbolRadius,
+    1
+  );
 
   data
     .slice()
@@ -860,22 +985,13 @@ function renderVerticalChart(data, svg, tooltip, wrapper) {
         a.state.localeCompare(b.state)
     )
     .forEach(d => {
-      const groupKey = `${d.year}-${d.type}`;
-
-      const stackIndex =
-        groupedCounts.get(groupKey) || 0;
-
-      groupedCounts.set(groupKey, stackIndex + 1);
-
       const direction =
         d.type === "abolish" ? -1 : 1;
 
       const x =
-        axisX +
-        direction *
-          (sideGap + stackIndex * stackGap);
+        axisX + direction * verticalOffsets.get(d.id);
 
-      const y = yScale(d.year);
+      const y = verticalPositions.get(d.id);
 
       const color =
         d.type === "abolish"
@@ -1017,6 +1133,40 @@ function renderVerticalChart(data, svg, tooltip, wrapper) {
     window.addEventListener("resize", () => {
       if (loadedRows.length) {
         renderChart(loadedRows);
+      }
+    });
+
+    // Report page height to the parent page (Drupal iframe embed)
+    const EMBED_ID = "death-penalty-ballot-measures-no-overlap";
+    let lastSentHeight = 0;
+
+    function sendHeight() {
+      if (window.parent === window) return;
+
+      const height = Math.ceil(
+        document.documentElement.getBoundingClientRect().height
+      );
+
+      if (height === lastSentHeight) return;
+      lastSentHeight = height;
+
+      window.parent.postMessage(
+        { type: "bcj-embed-height", id: EMBED_ID, height },
+        "*"
+      );
+    }
+
+    if ("ResizeObserver" in window) {
+      new ResizeObserver(sendHeight).observe(document.documentElement);
+    }
+
+    window.addEventListener("load", sendHeight);
+    window.addEventListener("resize", sendHeight);
+
+    window.addEventListener("message", event => {
+      if (event.data && event.data.type === "bcj-embed-request-height") {
+        lastSentHeight = 0;
+        sendHeight();
       }
     });
   </script>
