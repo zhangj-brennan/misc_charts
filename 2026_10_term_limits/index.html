@@ -116,7 +116,7 @@
 
     .term-timeline-label {
       margin: 0 0 6px;
-      color: var(--control-blue);
+      color: #000000;
       font-size: 13px;
       font-weight: 700;
     }
@@ -340,24 +340,20 @@
       margin-top: 2px;
     }
 
-    /* Title and subtitle form one white-on-black band */
     .chart-column h2 {
-      margin: 0;
-      padding: 6px 8px 0;
-      background: #000000;
-      color: #ffffff;
-      font-size: 16px;
+      margin: 0 0 10px;
+      color: #000000;
+      font-size: 22px;
       font-weight: 700;
-      line-height: 1.25;
+      line-height: 1.2;
     }
 
+    /* Sits tight under the column title */
     .rule-summary {
-      margin: 0 0 12px;
-      padding: 2px 8px 6px;
-      background: #000000;
-      color: #ffffff;
+      margin: -8px 0 12px;
+      color: #000000;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 400;
     }
 
     @media (max-width: 760px) {
@@ -768,7 +764,7 @@
       const tooltip = document.getElementById("chartTooltip");
       const width = svg.parentElement.clientWidth;
       const isMobile = width < 400;
-      const height = isMobile ? 320 : 500;
+      const height = isMobile ? 300 : 480;
       // Depth of the presidents axis below the plot (fits names turned sideways)
       const axisDepth = 68;
       const margin = { top: 16, right: isMobile ? 16 : 30, bottom: axisDepth + 52, left: 44 };
