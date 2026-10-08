@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>18-Year Term Limits: Prospective and Retroactive Implementations</title>
+  <style>
+    @font-face {
+      font-family: "Benton Sans";
+      src: url("Benton Sans/Benton Sans Regular.otf") format("opentype");
+      font-weight: 400;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: "Benton Sans";
+      src: url("Benton Sans/Benton Sans Italic.otf") format("opentype");
+      font-weight: 400;
+      font-style: italic;
+    }
+
+    @font-face {
+      font-family: "Benton Sans";
+      src: url("Benton Sans/Benton Sans Medium.otf") format("opentype");
+      font-weight: 500;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: "Benton Sans";
+      src: url("Benton Sans/Benton Sans Bold.otf") format("opentype");
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: "Benton Sans";
+      src: url("Benton Sans/Benton Sans Black.otf") format("opentype");
+      font-weight: 900;
+      font-style: normal;
+    }
+
+    :root {
+      --chart-text: #000000;
+      --chart-muted: #000000;
+      --chart-grid: #d9d9d9;
+      --chart-baseline: #000000;
+      --chart-accent: #ed1c24;
+      --control-blue: #005daa;
+      --chart-background: #ffffff;
+      --chart-tooltip-background: #ffffff;
+      --chart-border: #000000;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--chart-background);
+      color: var(--chart-text);
+      font-family: var(
+        --ff-bcj-sans,
+        "Benton Sans",
+        "Helvetica Neue",
+        Helvetica,
+        Arial,
+        sans-serif
+      );
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    .chart-page {
+      width: min(880px, 100%);
+      margin: 0 auto;
+      padding: 8px 0 1px;
+      border-top: 3px solid black;
+      margin-top: 10px;
+    }
+
+    .chart-title {
+      margin: 0 0 7px;
+      max-width: 780px;
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.01em;
+    }
+
+    .chart-deck {
+      max-width: 760px;
+      margin: 0 0 16px;
+      color: #000000;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.4;
+    }
+
+    .chart-refs {
+      width: min(880px, 100%);
+      margin: 120px auto 40px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .chart-refs ul {
+      margin: 2px 0 0;
+      padding-left: 16px;
+    }
+
+    .term-timeline {
+      margin: 24px 0 24px;
+    }
+
+    .term-timeline-label {
+      margin: 0 0 6px;
+      color: var(--control-blue);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .term-buttons {
+      display: inline-flex;
+      flex-wrap: wrap;
+      max-width: 100%;
+      border: 1px solid var(--control-blue);
+    }
+
+    .term-buttons button {
+      flex: 0 0 auto;
+      padding: 2px 10px;
+      white-space: nowrap;
+      line-height: 1.2;
+      border: 0;
+      background: var(--chart-background);
+      color: var(--control-blue);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .term-buttons button + button {
+      border-left: 1px solid var(--control-blue);
+    }
+
+    .term-buttons button.is-active {
+      background: var(--control-blue);
+      color: #ffffff;
+    }
+
+    .term-buttons button:focus-visible {
+      outline: 2px solid #000000;
+      outline-offset: -4px;
+    }
+
+    .chart-layout {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 40px;
+    }
+
+    /* Headings and controls stay at the top; charts line up along the bottom */
+    .chart-column {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Right edge lines up with the plot area (chart's right margin is 30px, 16px on narrow charts) */
+    .chart-column .chart-controls {
+      justify-content: flex-end;
+      position: relative;
+      z-index: 1;
+      margin-top: auto;
+      /* Pull down into the chart's 16px top margin, just above the top gridline */
+      min-height: 0;
+      margin-bottom: -15px;
+      line-height: 1.2;
+      padding-top: 24px;
+      padding-right: 30px;
+    }
+
+    @media (max-width: 440px) {
+      .chart-column .chart-controls {
+        padding-right: 16px;
+      }
+    }
+
+    .chart-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px 16px;
+      min-height: 24px;
+      margin: 0 0 10px;
+      font-size: 13px;
+    }
+
+    .chart-controls p {
+      margin: 0;
+    }
+
+    .chart-controls {
+      color: var(--control-blue);
+    }
+
+    .chart-controls input {
+      width: 52px;
+      padding: 2px 4px;
+      border: 1px solid var(--chart-border);
+      border-radius: 0;
+      font-family: inherit;
+      font-size: 13px;
+      text-align: right;
+    }
+
+    .justice-limits {
+      margin: 0 0 12px;
+      padding: 0;
+      border: 0;
+    }
+
+    .justice-limits legend,
+    .rule-label {
+      margin: 0 0 6px;
+      padding: 0;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .justice-limits-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 4px 12px;
+      font-size: 12px;
+    }
+
+    .justice-limits-grid label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .justice-limits-grid input {
+      width: 44px;
+      padding: 1px 4px;
+      border: 1px solid var(--chart-border);
+      border-radius: 0;
+      font-family: inherit;
+      font-size: 12px;
+      text-align: right;
+    }
+
+    /* Blue divider centered in the 40px gap between the two columns */
+    .chart-column + .chart-column {
+      position: relative;
+    }
+
+    .chart-column + .chart-column::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: -20px;
+      width: 1px;
+      background: var(--control-blue);
+    }
+
+    .chart-note {
+      margin: 12px 0 0;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .chart-column h2 {
+      margin: 0 0 10px;
+      color: var(--control-blue);
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    @media (max-width: 760px) {
+      .chart-layout {
+        display: block;
+      }
+
+      .chart-column + .chart-column {
+        margin-top: 24px;
+        padding-top: 24px;
+      }
+
+      /* Stacked: divider runs across the top instead */
+      .chart-column + .chart-column::before {
+        right: 0;
+        bottom: auto;
+        left: 0;
+        width: auto;
+        height: 1px;
+      }
+    }
+
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+    }
+
+    .tenure-chart {
+      display: block;
+      width: 100%;
+      height: auto;
+      overflow: visible;
+    }
+
+    .axis-label,
+    .tick-label,
+    .justice-label {
+      font-family: var(
+        --ff-bcj-sans,
+        "Benton Sans",
+        sans-serif
+      );
+      fill: #000000;
+    }
+
+    .axis-label {
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    .tick-label {
+      font-size: 11px;
+      font-weight: 400;
+    }
+
+    .justice-label {
+      font-size: 12px;
+      font-weight: 700;
+      pointer-events: none;
+    }
+
+    .term-band {
+      fill: transparent;
+    }
+
+    .term-label.future {
+      fill: #737373;
+      font-weight: 400;
+    }
+
+    .term-line {
+      stroke: #000000;
+      stroke-width: 0.5;
+    }
+
+    .term-label {
+      font-family: var(
+        --ff-bcj-sans,
+        "Benton Sans",
+        sans-serif
+      );
+      font-size: 11px;
+      font-weight: 700;
+      fill: #000000;
+      pointer-events: none;
+    }
+
+    .grid-line {
+      stroke: var(--chart-grid);
+      stroke-width: 1;
+      shape-rendering: crispEdges;
+    }
+
+    .baseline {
+      stroke: var(--chart-baseline);
+      stroke-width: 1;
+      shape-rendering: crispEdges;
+    }
+
+    .median-line {
+      stroke: var(--control-blue);
+      stroke-width: 1.5;
+      stroke-dasharray: 5 3;
+    }
+
+    .median-label {
+      font-family: var(
+        --ff-bcj-sans,
+        "Benton Sans",
+        sans-serif
+      );
+      font-size: 11px;
+      font-weight: 700;
+      fill: var(--control-blue);
+      pointer-events: none;
+    }
+
+    .justice-dot {
+      fill: #000000;
+      stroke: #ffffff;
+      stroke-width: 1.5;
+      cursor: pointer;
+    }
+
+    .justice-dot.new {
+      fill: #ffffff;
+      stroke: #000000;
+    }
+
+    .justice-dot.replaced {
+      fill: #cccccc;
+      stroke: #ffffff;
+    }
+
+    .justice-label.replaced {
+      fill: #a6a6a6;
+    }
+
+    .justice-dot:hover,
+    .justice-dot:focus {
+      fill: var(--chart-accent);
+      outline: none;
+    }
+
+    .chart-tooltip {
+      position: fixed;
+      z-index: 20;
+      width: max-content;
+      max-width: min(270px, calc(100vw - 28px));
+      padding: 8px 10px;
+      border: 1px solid var(--chart-border);
+      background: var(--chart-tooltip-background);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+      color: #000000;
+      font-size: 12px;
+      line-height: 1.35;
+      pointer-events: none;
+      opacity: 0;
+      transform: translate(-50%, calc(-100% - 11px));
+      transition: opacity 100ms ease;
+    }
+
+    .chart-tooltip strong {
+      display: block;
+      margin: 0 0 2px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    .chart-source {
+      margin: 8px 0 0;
+      padding-top: 7px;
+      color: #000000;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .chart-source strong {
+      color: #000000;
+      font-weight: 700;
+    }
+
+    @media (max-width: 920px) {
+      .chart-refs,
+      .chart-page {
+        padding-right: 16px;
+        padding-left: 16px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .chart-page {
+        padding-top: 16px;
+        padding-right: 12px;
+        padding-left: 12px;
+      }
+
+      .chart-refs {
+        padding-right: 12px;
+        padding-left: 12px;
+      }
+
+      .chart-title {
+        font-size: 20px;
+        line-height: 1.18;
+      }
+
+      .chart-deck {
+        margin-bottom: 13px;
+        font-size: 15px;
+        line-height: 1.4;
+      }
+    }
+
+    a {
+      text-decoration: none;
+      color: #005daa;
+    }
+  </style>
+</head>
+<body>
+  <main class="chart-page">
+    <h1 class="chart-title">18-Year Term Limits: Prospective and Retroactive Implementations</h1>
+    <section class="term-timeline">
+      <p class="term-timeline-label" id="termTimelineLabel">The Court at the end of:</p>
+      <div class="term-buttons" role="group" aria-labelledby="termTimelineLabel">
+        <button type="button" aria-pressed="false" data-terms="-1">Today</button>
+        <button type="button" class="is-active" aria-pressed="true" data-terms="0">Current presidential term (2029)</button>
+        <button type="button" aria-pressed="false" data-terms="1">Next term (2033)</button>
+        <button type="button" aria-pressed="false" data-terms="2">2 (2037)</button>
+        <button type="button" aria-pressed="false" data-terms="3">3 (2041)</button>
+        <button type="button" aria-pressed="false" data-terms="4">4 (2045)</button>
+        <button type="button" aria-pressed="false" data-terms="5">5 (2049)</button>
+      </div>
+    </section>
+
+    <section class="chart-layout">
+      <div class="chart-column">
+        <h2>Prospective</h2>
+        <fieldset class="justice-limits">
+          <legend>Set tenure limits for current justices (years)</legend>
+          <div class="justice-limits-grid" id="justiceLimits"></div>
+        </fieldset>
+        <div class="chart-controls">
+          <p>Size of the Court in <span class="court-year">2029</span>: <strong id="prospectiveCourtSize">9</strong></p>
+        </div>
+        <div class="chart-wrap">
+          <svg id="prospectiveChart" class="tenure-chart" role="img" aria-label="Prospective term limits: current Supreme Court justices by date of appointment and years of service"></svg>
+        </div>
+      </div>
+
+      <div class="chart-column">
+        <h2>Retroactive</h2>
+        <p class="rule-label">Retire when a new appointment occurs</p>
+        <div class="chart-controls">
+          <p>Size of the Court in <span class="court-year">2029</span>: <strong id="retroactiveCourtSize">9</strong></p>
+        </div>
+        <div class="chart-wrap">
+          <svg id="retroactiveChart" class="tenure-chart" role="img" aria-label="Retroactive term limits: current Supreme Court justices by date of appointment and years of service"></svg>
+        </div>
+      </div>
+    </section>
+
+    <p class="chart-note">* All new justices retire after 18 years.</p>
+
+    <div id="chartTooltip" class="chart-tooltip" role="tooltip"></div>
+
+  </main>
+
+  <div class="chart-refs">
+    <strong>References</strong>
+    <ul>
+      <li><a href="https://www.brennancenter.org/our-work/policy-solutions/supreme-court-term-limits#footnote__f6Fg5A99vw1SFZs4lRgiGlXXDpjGW-l95UnHXNAmW0_1" target="_blank">Supreme Court Term Limits (footnote 1) – Brennan Center</a></li>
+      <li><a href="https://www.brennancenter.org/our-work/policy-solutions/supreme-court-term-limits" target="_blank">Supreme Court Term Limits – Brennan Center</a></li>
+    </ul>
+  </div>
+
+  <script>
+    const CSV_FILE = "data.csv";
+    const MS_PER_YEAR = 365.2425 * 24 * 60 * 60 * 1000;
+    const NEW_JUSTICE_TERM = 18;
+    const TODAY = new Date();
+
+    // Presidential terms, drawn as the x axis (current term projected to its scheduled end)
+    const PRESIDENTS = [
+      { name: "George H.W. Bush", short: "Bush", start: new Date(1989, 0, 20), end: new Date(1993, 0, 20) },
+      { name: "Bill Clinton", short: "Clinton", start: new Date(1993, 0, 20), end: new Date(2001, 0, 20) },
+      { name: "George W. Bush", short: "Bush", start: new Date(2001, 0, 20), end: new Date(2009, 0, 20) },
+      { name: "Barack Obama", short: "Obama", start: new Date(2009, 0, 20), end: new Date(2017, 0, 20) },
+      { name: "Donald Trump", short: "Trump", start: new Date(2017, 0, 20), end: new Date(2021, 0, 20) },
+      { name: "Joe Biden", short: "Biden", start: new Date(2021, 0, 20), end: new Date(2025, 0, 20) },
+      { name: "Donald Trump", short: "Trump", start: new Date(2025, 0, 20), end: new Date(2029, 0, 20) }
+    ];
+
+    // Years of service are measured to the end of the current presidential term,
+    // pushed out 4 years for each term added with the timeline buttons
+    const SERVICE_END = PRESIDENTS[PRESIDENTS.length - 1].end;
+
+    function serviceEnd() {
+      if (termsAdded < 0) return TODAY;
+      return new Date(SERVICE_END.getFullYear() + 4 * termsAdded, SERVICE_END.getMonth(), SERVICE_END.getDate());
+    }
+
+    // The current presidential term and each added term appoint 2 new justices,
+    // in July of the term's first and third years
+    function newJustices() {
+      // Today shows the actual Court, with no hypothetical appointments
+      if (termsAdded < 0) return [];
+
+      const currentTermStartYear = PRESIDENTS[PRESIDENTS.length - 1].start.getFullYear();
+      const justices = [];
+
+      for (let term = 0; term <= Math.max(0, termsAdded); term++) {
+        const termStartYear = currentTermStartYear + 4 * term;
+        [0, 2].forEach(offset => {
+          const number = justices.length + 1;
+          justices.push({
+            name: `New justice ${number} (${term === 0 ? "current term" : `Term ${term}`})`,
+            label: "",
+            start: new Date(termStartYear + offset, 6, 1),
+            isNew: true
+          });
+        });
+      }
+
+      // Only justices appointed by the end date are on the Court
+      return justices.filter(d => d.start <= serviceEnd());
+    }
+
+    function updateTenure(data) {
+      const end = serviceEnd();
+      data.forEach(d => { d.years = (end - d.start) / MS_PER_YEAR; });
+    }
+
+    // Labels that would collide with a neighbor go on the left of the dot
+    const LABEL_LEFT = new Set(["John Roberts"]);
+
+    function parseCSV(text) {
+      const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
+      const headers = lines[0].split(",").map(header => header.trim());
+
+      return lines.slice(1).map(line => {
+        const values = line.split(",");
+        const item = {};
+
+        headers.forEach((header, index) => {
+          item[header] = (values[index] || "").trim();
+        });
+
+        return item;
+      });
+    }
+
+    function parseDate(value) {
+      const [month, day, year] = value.split("/").map(Number);
+      return new Date(year, month - 1, day);
+    }
+
+    function shortName(name) {
+      const parts = name.split(" ");
+      return parts[parts.length - 1];
+    }
+
+    function prepareData(rows) {
+      return rows
+        .filter(row => row.isCurrent.toLowerCase() === "yes")
+        .map(row => {
+          const start = parseDate(row["start date"]);
+          return {
+            // Drop the "(CJ)" marker from the CSV
+            name: row.name.replace("(CJ)", "").trim(),
+            label: shortName(row.name.replace("(CJ)", "").trim()),
+            start
+          };
+        });
+    }
+
+    function createSvgElement(name, attributes = {}) {
+      const element = document.createElementNS("http://www.w3.org/2000/svg", name);
+      Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
+      return element;
+    }
+
+    function formatDate(date) {
+      return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    }
+
+    // replaced: justices (by name) shown greyed out as having left the Court,
+    // with replacedNote explaining why in the tooltip
+    function renderChart(svgId, data, replaced = new Set(), replacedNote = "") {
+      const svg = document.getElementById(svgId);
+      const tooltip = document.getElementById("chartTooltip");
+      const width = svg.parentElement.clientWidth;
+      const isMobile = width < 400;
+      const height = isMobile ? 320 : 500;
+      // Depth of the presidents axis below the plot (fits names turned sideways)
+      const axisDepth = 68;
+      const margin = { top: 16, right: isMobile ? 16 : 30, bottom: axisDepth + 52, left: 44 };
+      const plotWidth = width - margin.left - margin.right;
+      const plotHeight = height - margin.top - margin.bottom;
+      const plotBottom = margin.top + plotHeight;
+
+      svg.innerHTML = "";
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+      // Presidential terms plus any future 4-year terms added with the timeline buttons
+      const lastEnd = PRESIDENTS[PRESIDENTS.length - 1].end;
+      const futureTerms = Array.from({ length: Math.max(0, termsAdded) }, (_, i) => {
+        const start = new Date(lastEnd.getFullYear() + 4 * i, 0, 20);
+        const end = new Date(lastEnd.getFullYear() + 4 * (i + 1), 0, 20);
+        return { name: `Future term ${i + 1}`, short: `Term ${i + 1}`, start, end, future: true };
+      });
+      const terms = [...PRESIDENTS, ...futureTerms];
+
+      // X axis runs from the first listed inauguration to the end of the last term
+      const xMin = terms[0].start.getTime();
+      const xMax = terms[terms.length - 1].end.getTime();
+      // At least 40 years; grows in 5-year steps if added terms push tenure past it
+      const yMax = Math.max(40, Math.ceil(Math.max(...data.map(d => d.years)) / 5) * 5);
+
+      const x = date => margin.left + ((date.getTime() - xMin) / (xMax - xMin)) * plotWidth;
+      const y = years => margin.top + plotHeight - (years / yMax) * plotHeight;
+
+      // Y gridlines and labels
+      for (let tick = 0; tick <= yMax; tick += 5) {
+        svg.appendChild(createSvgElement("line", {
+          class: tick === 0 ? "baseline" : "grid-line",
+          x1: margin.left, x2: margin.left + plotWidth,
+          y1: y(tick), y2: y(tick)
+        }));
+
+        const label = createSvgElement("text", {
+          class: "tick-label",
+          x: margin.left - 8, y: y(tick) + 4,
+          "text-anchor": "end"
+        });
+        label.textContent = tick;
+        svg.appendChild(label);
+      }
+
+      // X axis: presidential terms, with year-labeled ticks at each inauguration
+      // Year labels run sideways, reading upward, under each tick
+      const addYearLabel = (xPos, year) => {
+        const labelY = plotBottom + axisDepth + 4;
+        const label = createSvgElement("text", {
+          class: "tick-label",
+          x: xPos + 4, y: labelY,
+          transform: `rotate(-90 ${xPos + 4} ${labelY})`,
+          "text-anchor": "end"
+        });
+        label.textContent = year;
+        svg.appendChild(label);
+      };
+
+      terms.forEach(president => {
+        const x1 = x(president.start);
+        const x2 = x(president.end);
+
+        // Transparent hit area so hovering shows the full name
+        const band = createSvgElement("rect", {
+          class: "term-band",
+          x: x1, y: plotBottom,
+          width: x2 - x1, height: axisDepth
+        });
+        const title = createSvgElement("title");
+        title.textContent = `${president.name}, ${president.start.getFullYear()}–${president.end.getFullYear()}`;
+        band.appendChild(title);
+        svg.appendChild(band);
+
+        svg.appendChild(createSvgElement("line", {
+          class: "term-line",
+          x1, x2: x1,
+          y1: margin.top, y2: plotBottom + axisDepth
+        }));
+
+        addYearLabel(x1, president.start.getFullYear());
+
+        // Names run sideways, reading upward, centered between the ticks
+        const labelX = (x1 + x2) / 2 + 4;
+        const labelY = plotBottom + 6;
+        const label = createSvgElement("text", {
+          class: `term-label${president.future ? " future" : ""}`,
+          x: labelX, y: labelY,
+          transform: `rotate(-90 ${labelX} ${labelY})`,
+          "text-anchor": "end"
+        });
+        // Number of justices on the chart appointed during this term
+        const appointed = data.filter(d => d.start >= president.start && d.start < president.end).length;
+        label.textContent = `${president.short} (${appointed})`;
+        svg.appendChild(label);
+      });
+
+      // Closing tick at the end of the last term
+      const endX = x(new Date(xMax));
+      svg.appendChild(createSvgElement("line", {
+        class: "term-line",
+        x1: endX, x2: endX,
+        y1: margin.top, y2: plotBottom + axisDepth
+      }));
+
+      addYearLabel(endX, new Date(xMax).getFullYear());
+
+      // Axis titles
+      const xTitle = createSvgElement("text", {
+        class: "axis-label",
+        x: margin.left + plotWidth / 2, y: height - 4,
+        "text-anchor": "middle"
+      });
+      xTitle.textContent = "Date of appointment";
+      svg.appendChild(xTitle);
+
+      const yTitle = createSvgElement("text", {
+        class: "axis-label",
+        transform: `translate(12, ${margin.top + plotHeight / 2}) rotate(-90)`,
+        "text-anchor": "middle"
+      });
+      yTitle.textContent = "Years of service";
+      svg.appendChild(yTitle);
+
+      // Median tenure of the justices still sitting (not greyed out)
+      const sitting = data.filter(d => !replaced.has(d.name)).map(d => d.years).sort((a, b) => a - b);
+      if (sitting.length) {
+        const mid = Math.floor(sitting.length / 2);
+        const median = sitting.length % 2 ? sitting[mid] : (sitting[mid - 1] + sitting[mid]) / 2;
+        const medianY = y(median);
+
+        svg.appendChild(createSvgElement("line", {
+          class: "median-line",
+          x1: margin.left, x2: margin.left + plotWidth,
+          y1: medianY, y2: medianY
+        }));
+
+        const medianLabel = createSvgElement("text", {
+          class: "median-label",
+          x: margin.left + 4, y: medianY - 5,
+          "text-anchor": "start"
+        });
+        medianLabel.textContent = `Median tenure: ${median.toFixed(1)} years`;
+        svg.appendChild(medianLabel);
+      }
+
+      // Dots and labels
+      data.forEach(d => {
+        const cx = x(d.start);
+        const cy = y(d.years);
+        const left = LABEL_LEFT.has(d.name);
+        const isReplaced = replaced.has(d.name);
+
+        const dot = createSvgElement("circle", {
+          class: `justice-dot${d.isNew ? " new" : ""}${isReplaced ? " replaced" : ""}`,
+          cx, cy, r: 6,
+          tabindex: 0,
+          "aria-label": `${d.name}, appointed ${formatDate(d.start)}, ${d.years.toFixed(1)} years${isReplaced ? ", replaced" : ""}`
+        });
+
+        const showTooltip = () => {
+          const box = dot.getBoundingClientRect();
+          tooltip.innerHTML = `<strong>${d.name}</strong>Appointed ${formatDate(d.start)}<br>${d.years.toFixed(1)} years of service${isReplaced ? `<br>${replacedNote}` : ""}`;
+          tooltip.style.left = `${box.left + box.width / 2}px`;
+          tooltip.style.top = `${box.top}px`;
+          tooltip.style.opacity = 1;
+        };
+        const hideTooltip = () => { tooltip.style.opacity = 0; };
+
+        dot.addEventListener("mouseenter", showTooltip);
+        dot.addEventListener("focus", showTooltip);
+        dot.addEventListener("mouseleave", hideTooltip);
+        dot.addEventListener("blur", hideTooltip);
+        svg.appendChild(dot);
+
+        if (!d.label) return;
+
+        const label = createSvgElement("text", {
+          class: `justice-label${isReplaced ? " replaced" : ""}`,
+          x: left ? cx - 10 : cx + 10,
+          y: cy - 4,
+          "text-anchor": left ? "end" : "start"
+        });
+        label.textContent = d.label;
+        svg.appendChild(label);
+      });
+    }
+
+    // Number of 4-year presidential terms added to the timeline (0-5); -1 means today
+    let termsAdded = 0;
+
+    function setupTermTimeline(onChange) {
+      const buttons = [...document.querySelectorAll(".term-buttons button")];
+
+      buttons.forEach(button => {
+        button.addEventListener("click", () => {
+          const terms = Number(button.dataset.terms);
+          if (terms === termsAdded) return;
+          termsAdded = terms;
+
+          // Only the selected button is highlighted
+          buttons.forEach(b => {
+            const active = Number(b.dataset.terms) === termsAdded;
+            b.classList.toggle("is-active", active);
+            b.setAttribute("aria-pressed", active);
+          });
+
+          onChange(termsAdded);
+        });
+      });
+    }
+
+    // Default retirement limit per current justice: Thomas 40; under 18 years of
+    // service at the end of the current presidential term, 25; everyone else 30
+    function defaultLimit(d) {
+      if (d.name.includes("Thomas")) return 40;
+      return (SERVICE_END - d.start) / MS_PER_YEAR < 18 ? 25 : 30;
+    }
+
+    function renderJusticeLimits(data) {
+      document.getElementById("justiceLimits").innerHTML = data
+        .map((d, i) => `<label for="limit-${i}">${d.label}<input type="number" id="limit-${i}" data-name="${d.name}" value="${defaultLimit(d)}" min="1" max="99" step="1"></label>`)
+        .join("");
+    }
+
+    fetch(CSV_FILE)
+      .then(response => response.text())
+      .then(text => {
+        const data = prepareData(parseCSV(text));
+
+        // Current justices plus the new appointments from added terms
+        let chartData = data;
+
+        // Both charts show the same data for now
+        const renderCharts = () => {
+          // Prospective: justices past their retirement limit leave the Court.
+          // Current justices each have their own limit; new justices serve 18 years.
+          const limitFor = d => {
+            if (d.isNew) return NEW_JUSTICE_TERM;
+            const input = document.querySelector(`#justiceLimits input[data-name="${d.name}"]`);
+            return (input && Number(input.value)) || defaultLimit(d);
+          };
+          const retired = new Set(chartData.filter(d => d.years > limitFor(d)).map(d => d.name));
+          renderChart("prospectiveChart", chartData, retired, "Retired at their term limit");
+          document.getElementById("prospectiveCourtSize").textContent = chartData.length - retired.size;
+
+          // Retroactive: each new appointment replaces the longest-serving justice
+          // and new justices also retire after 18 years
+          const replaced = new Set([
+            ...[...chartData]
+              .sort((a, b) => a.start - b.start)
+              .slice(0, chartData.filter(d => d.isNew).length)
+              .map(d => d.name),
+            ...chartData.filter(d => d.isNew && d.years > NEW_JUSTICE_TERM).map(d => d.name)
+          ]);
+          renderChart("retroactiveChart", chartData, replaced, "Replaced by a new appointment");
+          document.getElementById("retroactiveCourtSize").textContent = chartData.length - replaced.size;
+
+          document.querySelectorAll(".court-year").forEach(el => { el.textContent = serviceEnd().getFullYear(); });
+        };
+
+        const update = () => {
+          chartData = [...data, ...newJustices()];
+          updateTenure(chartData);
+
+          renderCharts();
+        };
+
+        // Limit boxes must exist before the first draw
+        renderJusticeLimits(data);
+        update();
+        setupTermTimeline(update);
+        document.getElementById("justiceLimits").addEventListener("input", renderCharts);
+        window.addEventListener("resize", renderCharts);
+      });
+  </script>
+</body>
+</html>
