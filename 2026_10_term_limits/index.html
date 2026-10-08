@@ -100,7 +100,7 @@
 
     .chart-refs {
       width: min(880px, 100%);
-      margin: 120px auto 40px;
+      margin: 24px auto 40px;
       font-size: 12px;
       line-height: 1.4;
     }
@@ -223,12 +223,43 @@
       border: 0;
     }
 
-    .justice-limits legend,
-    .rule-label {
+    .justice-limits legend {
       margin: 0 0 6px;
       padding: 0;
       font-size: 12px;
+      font-weight: 400;
+    }
+
+    .limit-mode {
+      display: inline-flex;
+      margin: 0 0 8px;
+      border: 1px solid var(--control-blue);
+    }
+
+    .limit-mode button {
+      padding: 1px 8px;
+      border: 0;
+      background: var(--chart-background);
+      color: var(--control-blue);
+      font-family: inherit;
+      font-size: 12px;
       font-weight: 700;
+      line-height: 1.3;
+      cursor: pointer;
+    }
+
+    .limit-mode button + button {
+      border-left: 1px solid var(--control-blue);
+    }
+
+    .limit-mode button.is-active {
+      background: var(--control-blue);
+      color: #ffffff;
+    }
+
+    .limit-mode button:focus-visible {
+      outline: 2px solid #000000;
+      outline-offset: -4px;
     }
 
     .justice-limits-grid {
@@ -238,21 +269,50 @@
       font-size: 12px;
     }
 
-    .justice-limits-grid label {
+    .limit-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 6px;
     }
 
-    .justice-limits-grid input {
-      width: 44px;
-      padding: 1px 4px;
-      border: 1px solid var(--chart-border);
-      border-radius: 0;
+    .limit-stepper {
+      display: inline-flex;
+      align-items: stretch;
+      border: 1px solid var(--control-blue);
+    }
+
+    .limit-stepper button {
+      width: 18px;
+      padding: 0;
+      border: 0;
+      background: var(--control-blue);
+      color: #ffffff;
       font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.3;
+      cursor: pointer;
+    }
+
+    .limit-stepper button:disabled {
+      background: #bbbbbb;
+      cursor: default;
+    }
+
+    .limit-stepper button:focus-visible {
+      outline: 2px solid #000000;
+      outline-offset: -2px;
+    }
+
+    .limit-stepper output {
+      min-width: 22px;
+      background: var(--chart-background);
+      color: var(--control-blue);
       font-size: 12px;
-      text-align: right;
+      font-weight: 700;
+      line-height: 1.5;
+      text-align: center;
     }
 
     /* Blue divider centered in the 40px gap between the two columns */
@@ -267,7 +327,7 @@
       bottom: 0;
       left: -20px;
       width: 1px;
-      background: var(--control-blue);
+      background: #000000;
     }
 
     .chart-note {
@@ -276,12 +336,28 @@
       line-height: 1.35;
     }
 
+    .chart-note + .chart-note {
+      margin-top: 2px;
+    }
+
+    /* Title and subtitle form one white-on-black band */
     .chart-column h2 {
-      margin: 0 0 10px;
-      color: var(--control-blue);
+      margin: 0;
+      padding: 6px 8px 0;
+      background: #000000;
+      color: #ffffff;
       font-size: 16px;
       font-weight: 700;
       line-height: 1.25;
+    }
+
+    .rule-summary {
+      margin: 0 0 12px;
+      padding: 2px 8px 6px;
+      background: #000000;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
     }
 
     @media (max-width: 760px) {
@@ -522,8 +598,13 @@
     <section class="chart-layout">
       <div class="chart-column">
         <h2>Prospective</h2>
+        <p class="rule-summary">Current justices retire when they want to.*</p>
         <fieldset class="justice-limits">
-          <legend>Set tenure limits for current justices (years)</legend>
+          <legend>Set tenure limits for current justices:</legend>
+          <div class="limit-mode" role="group" aria-label="Tenure limit type">
+            <button type="button" class="is-active" aria-pressed="true" data-mode="service">By years of service</button>
+            <button type="button" aria-pressed="false" data-mode="age">By retirement age**</button>
+          </div>
           <div class="justice-limits-grid" id="justiceLimits"></div>
         </fieldset>
         <div class="chart-controls">
@@ -536,7 +617,7 @@
 
       <div class="chart-column">
         <h2>Retroactive</h2>
-        <p class="rule-label">Retire when a new appointment occurs</p>
+        <p class="rule-summary">Current justices retire when a new appointment occurs.*</p>
         <div class="chart-controls">
           <p>Size of the Court in <span class="court-year">2029</span>: <strong id="retroactiveCourtSize">9</strong></p>
         </div>
@@ -547,6 +628,7 @@
     </section>
 
     <p class="chart-note">* All new justices retire after 18 years.</p>
+    <p class="chart-note">** Age based on birth year, adjustments TBD.</p>
 
     <div id="chartTooltip" class="chart-tooltip" role="tooltip"></div>
 
@@ -562,6 +644,8 @@
 
   <script>
     const CSV_FILE = "data.csv";
+    // Birth years of the current justices
+    const BIRTH_YEARS_FILE = "birth_years.csv";
     const MS_PER_YEAR = 365.2425 * 24 * 60 * 60 * 1000;
     const NEW_JUSTICE_TERM = 18;
     const TODAY = new Date();
@@ -646,7 +730,8 @@
       return parts[parts.length - 1];
     }
 
-    function prepareData(rows) {
+    function prepareData(rows, birthRows) {
+      const birthYears = new Map(birthRows.map(row => [row.name, Number(row["birth year"])]));
       return rows
         .filter(row => row.isCurrent.toLowerCase() === "yes")
         .map(row => {
@@ -655,9 +740,15 @@
             // Drop the "(CJ)" marker from the CSV
             name: row.name.replace("(CJ)", "").trim(),
             label: shortName(row.name.replace("(CJ)", "").trim()),
+            birthYear: birthYears.get(row.name),
             start
           };
         });
+    }
+
+    // Approximate age at the end date (only birth years are known)
+    function ageAt(d, end) {
+      return d.birthYear ? end.getFullYear() - d.birthYear : null;
     }
 
     function createSvgElement(name, attributes = {}) {
@@ -830,17 +921,18 @@
         const cy = y(d.years);
         const left = LABEL_LEFT.has(d.name);
         const isReplaced = replaced.has(d.name);
+        const age = ageAt(d, serviceEnd());
 
         const dot = createSvgElement("circle", {
           class: `justice-dot${d.isNew ? " new" : ""}${isReplaced ? " replaced" : ""}`,
           cx, cy, r: 6,
           tabindex: 0,
-          "aria-label": `${d.name}, appointed ${formatDate(d.start)}, ${d.years.toFixed(1)} years${isReplaced ? ", replaced" : ""}`
+          "aria-label": `${d.name}, appointed ${formatDate(d.start)}, ${d.years.toFixed(1)} years${age ? `, age ${age}` : ""}${isReplaced ? ", replaced" : ""}`
         });
 
         const showTooltip = () => {
           const box = dot.getBoundingClientRect();
-          tooltip.innerHTML = `<strong>${d.name}</strong>Appointed ${formatDate(d.start)}<br>${d.years.toFixed(1)} years of service${isReplaced ? `<br>${replacedNote}` : ""}`;
+          tooltip.innerHTML = `<strong>${d.name}</strong>Appointed ${formatDate(d.start)}<br>${d.years.toFixed(1)} years of service${age ? `<br>Age ${age} in ${serviceEnd().getFullYear()}` : ""}${isReplaced ? `<br>${replacedNote}` : ""}`;
           tooltip.style.left = `${box.left + box.width / 2}px`;
           tooltip.style.top = `${box.top}px`;
           tooltip.style.opacity = 1;
@@ -861,7 +953,9 @@
           y: cy - 4,
           "text-anchor": left ? "end" : "start"
         });
-        label.textContent = d.label;
+        // Label shows whichever measure the tenure limits are set by
+        if (limitMode === "service") label.textContent = `${d.label}, ${Math.floor(d.years)}`;
+        else label.textContent = age ? `${d.label}, ${age}` : d.label;
         svg.appendChild(label);
       });
     }
@@ -892,21 +986,96 @@
 
     // Default retirement limit per current justice: Thomas 40; under 18 years of
     // service at the end of the current presidential term, 25; everyone else 30
+    // Limits are set either as years of service or as a retirement age
+    const LIMIT_RANGE = {
+      service: { min: 1, max: 99 },
+      age: { min: 40, max: 99 }
+    };
+    let limitMode = "service";
+    // Each mode keeps its own values, so switching back restores them
+    const limitValues = { service: new Map(), age: new Map() };
+
     function defaultLimit(d) {
       if (d.name.includes("Thomas")) return 40;
       return (SERVICE_END - d.start) / MS_PER_YEAR < 18 ? 25 : 30;
     }
 
+    // Default retirement age: the age at which the default service limit is reached
+    function defaultAgeLimit(d) {
+      return d.birthYear ? d.start.getFullYear() - d.birthYear + defaultLimit(d) : null;
+    }
+
+    // Whether a current justice has passed their limit at the end date
+    function pastLimit(d, end) {
+      const limit = limitValues[limitMode].get(d.name);
+      if (limitMode === "age") {
+        const age = ageAt(d, end);
+        return age !== null && limit !== null && age >= limit;
+      }
+      return d.years > limit;
+    }
+
     function renderJusticeLimits(data) {
+      data.forEach(d => {
+        limitValues.service.set(d.name, defaultLimit(d));
+        limitValues.age.set(d.name, defaultAgeLimit(d));
+      });
       document.getElementById("justiceLimits").innerHTML = data
-        .map((d, i) => `<label for="limit-${i}">${d.label}<input type="number" id="limit-${i}" data-name="${d.name}" value="${defaultLimit(d)}" min="1" max="99" step="1"></label>`)
+        .map((d, i) => `<div class="limit-row">
+          <span id="limit-label-${i}">${d.label}</span>
+          <span class="limit-stepper" role="group" aria-labelledby="limit-label-${i}">
+            <button type="button" data-step="-1" aria-label="Decrease ${d.label} limit">&minus;</button>
+            <output data-name="${d.name}" aria-live="polite"></output>
+            <button type="button" data-step="1" aria-label="Increase ${d.label} limit">+</button>
+          </span>
+        </div>`)
         .join("");
     }
 
-    fetch(CSV_FILE)
-      .then(response => response.text())
-      .then(text => {
-        const data = prepareData(parseCSV(text));
+    // Show the current mode's values and disable buttons at the ends of its range
+    function syncLimitSteppers() {
+      const { min, max } = LIMIT_RANGE[limitMode];
+      document.querySelectorAll("#justiceLimits .limit-stepper").forEach(stepper => {
+        const output = stepper.querySelector("output");
+        const value = limitValues[limitMode].get(output.dataset.name);
+        output.value = value ?? "–";
+        stepper.querySelector('[data-step="-1"]').disabled = value === null || value <= min;
+        stepper.querySelector('[data-step="1"]').disabled = value === null || value >= max;
+      });
+    }
+
+    // Step a justice's limit up or down within the current mode's range
+    function setupLimitSteppers(onChange) {
+      syncLimitSteppers();
+      document.getElementById("justiceLimits").addEventListener("click", event => {
+        const button = event.target.closest("button[data-step]");
+        if (!button) return;
+        const { min, max } = LIMIT_RANGE[limitMode];
+        const name = button.closest(".limit-stepper").querySelector("output").dataset.name;
+        const value = limitValues[limitMode].get(name);
+        limitValues[limitMode].set(name, Math.min(max, Math.max(min, value + Number(button.dataset.step))));
+        syncLimitSteppers();
+        onChange();
+      });
+
+      const modeButtons = [...document.querySelectorAll(".limit-mode button")];
+      modeButtons.forEach(button => {
+        button.addEventListener("click", () => {
+          limitMode = button.dataset.mode;
+          modeButtons.forEach(b => {
+            const active = b === button;
+            b.classList.toggle("is-active", active);
+            b.setAttribute("aria-pressed", active);
+          });
+          syncLimitSteppers();
+          onChange();
+        });
+      });
+    }
+
+    Promise.all([CSV_FILE, BIRTH_YEARS_FILE].map(file => fetch(file).then(response => response.text())))
+      .then(([text, birthText]) => {
+        const data = prepareData(parseCSV(text), parseCSV(birthText));
 
         // Current justices plus the new appointments from added terms
         let chartData = data;
@@ -915,13 +1084,12 @@
         const renderCharts = () => {
           // Prospective: justices past their retirement limit leave the Court.
           // Current justices each have their own limit; new justices serve 18 years.
-          const limitFor = d => {
-            if (d.isNew) return NEW_JUSTICE_TERM;
-            const input = document.querySelector(`#justiceLimits input[data-name="${d.name}"]`);
-            return (input && Number(input.value)) || defaultLimit(d);
-          };
-          const retired = new Set(chartData.filter(d => d.years > limitFor(d)).map(d => d.name));
-          renderChart("prospectiveChart", chartData, retired, "Retired at their term limit");
+          const end = serviceEnd();
+          const retired = new Set(chartData
+            .filter(d => d.isNew ? d.years > NEW_JUSTICE_TERM : pastLimit(d, end))
+            .map(d => d.name));
+          renderChart("prospectiveChart", chartData, retired,
+            limitMode === "age" ? "Retired at their age limit" : "Retired at their term limit");
           document.getElementById("prospectiveCourtSize").textContent = chartData.length - retired.size;
 
           // Retroactive: each new appointment replaces the longest-serving justice
@@ -950,7 +1118,7 @@
         renderJusticeLimits(data);
         update();
         setupTermTimeline(update);
-        document.getElementById("justiceLimits").addEventListener("input", renderCharts);
+        setupLimitSteppers(renderCharts);
         window.addEventListener("resize", renderCharts);
       });
   </script>
