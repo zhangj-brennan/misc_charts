@@ -73,7 +73,7 @@
     }
 
     .chart-page {
-      width: min(880px, 100%);
+      width: min(1320px, 100%);
       margin: 0 auto;
       padding: 8px 0 1px;
       border-top: 3px solid black;
@@ -99,7 +99,7 @@
     }
 
     .chart-refs {
-      width: min(880px, 100%);
+      width: min(1320px, 100%);
       margin: 24px auto 40px;
       font-size: 12px;
       line-height: 1.4;
@@ -156,11 +156,20 @@
       outline-offset: -4px;
     }
 
+    /* Rows: titles, shared limits panel, charts. Retroactive spans all three. */
     .chart-layout {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 40px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-rows: auto auto 1fr;
+      column-gap: 40px;
     }
+
+    .prospective-head { grid-area: 1 / 1; }
+    .phase-in-head { grid-area: 1 / 2; }
+    .chart-layout .justice-limits { grid-area: 2 / 1 / 3 / 3; }
+    .prospective-body { grid-area: 3 / 1; }
+    .phase-in-body { grid-area: 3 / 2; }
+    .retroactive-column { grid-area: 1 / 3 / 4 / 4; }
 
     /* Headings and controls stay at the top; charts line up along the bottom */
     .chart-column {
@@ -264,8 +273,9 @@
 
     .justice-limits-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 4px 12px;
+      /* Fills the panel's width, which spans two chart columns */
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 4px 24px;
       font-size: 12px;
     }
 
@@ -305,6 +315,23 @@
       outline-offset: -2px;
     }
 
+    /* Justice already past their limit: still adjustable, but greyed out */
+    .limit-row.is-retired {
+      color: #a6a6a6;
+    }
+
+    .limit-row.is-retired .limit-stepper {
+      border-color: #a6a6a6;
+    }
+
+    .limit-row.is-retired .limit-stepper button:not(:disabled) {
+      background: #a6a6a6;
+    }
+
+    .limit-row.is-retired .limit-stepper output {
+      color: #a6a6a6;
+    }
+
     .limit-stepper output {
       min-width: 22px;
       background: var(--chart-background);
@@ -315,12 +342,15 @@
       text-align: center;
     }
 
-    /* Blue divider centered in the 40px gap between the two columns */
-    .chart-column + .chart-column {
+    /* Dividers centered in the 40px gap: Prospective | Phase-in only beside
+       the charts (they share the panel above), Retroactive full height */
+    .phase-in-body,
+    .retroactive-column {
       position: relative;
     }
 
-    .chart-column + .chart-column::before {
+    .phase-in-body::before,
+    .retroactive-column::before {
       content: "";
       position: absolute;
       top: 0;
@@ -340,7 +370,7 @@
       margin-top: 2px;
     }
 
-    .chart-column h2 {
+    .chart-layout h2 {
       margin: 0 0 10px;
       color: #000000;
       font-size: 22px;
@@ -352,27 +382,45 @@
     .rule-summary {
       margin: -8px 0 12px;
       color: #000000;
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 400;
     }
 
-    @media (max-width: 760px) {
+    @media (max-width: 1000px) {
       .chart-layout {
-        display: block;
+        display: flex;
+        flex-direction: column;
       }
 
-      .chart-column + .chart-column {
+      /* Stacked: Prospective (with the limits panel), then Phase-in, then Retroactive */
+      .prospective-head { order: 1; }
+      .chart-layout .justice-limits { order: 2; }
+      .prospective-body { order: 3; }
+      .phase-in-head { order: 4; }
+      .phase-in-body { order: 5; }
+      .retroactive-column { order: 6; }
+
+      .phase-in-head,
+      .retroactive-column {
+        position: relative;
         margin-top: 24px;
         padding-top: 24px;
       }
 
+      .phase-in-body::before {
+        content: none;
+      }
+
       /* Stacked: divider runs across the top instead */
-      .chart-column + .chart-column::before {
+      .phase-in-head::before,
+      .retroactive-column::before {
+        content: "";
+        position: absolute;
+        top: 0;
         right: 0;
-        bottom: auto;
         left: 0;
-        width: auto;
         height: 1px;
+        background: #000000;
       }
     }
 
@@ -411,7 +459,7 @@
 
     .justice-label {
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 400;
       pointer-events: none;
     }
 
@@ -479,8 +527,8 @@
     }
 
     .justice-dot.new {
-      fill: #ffffff;
-      stroke: #000000;
+      fill: #000000;
+      stroke: #ffffff;
     }
 
     .justice-dot.replaced {
@@ -494,7 +542,8 @@
 
     .justice-dot:hover,
     .justice-dot:focus {
-      fill: var(--chart-accent);
+      fill: #ffd200;
+      stroke: #000000;
       outline: none;
     }
 
@@ -537,7 +586,7 @@
       font-weight: 700;
     }
 
-    @media (max-width: 920px) {
+    @media (max-width: 1360px) {
       .chart-refs,
       .chart-page {
         padding-right: 16px;
@@ -591,18 +640,28 @@
       </div>
     </section>
 
+    <!-- Prospective and Phase-in share the tenure limits panel, which spans both columns -->
     <section class="chart-layout">
-      <div class="chart-column">
+      <div class="chart-head prospective-head" id="prospectiveHead">
         <h2>Prospective</h2>
         <p class="rule-summary">Current justices retire when they want to.*</p>
-        <fieldset class="justice-limits">
-          <legend>Set tenure limits for current justices:</legend>
-          <div class="limit-mode" role="group" aria-label="Tenure limit type">
-            <button type="button" class="is-active" aria-pressed="true" data-mode="service">By years of service</button>
-            <button type="button" aria-pressed="false" data-mode="age">By retirement age**</button>
-          </div>
-          <div class="justice-limits-grid" id="justiceLimits"></div>
-        </fieldset>
+      </div>
+
+      <div class="chart-head phase-in-head" id="phaseInHead">
+        <h2>Phase-in</h2>
+        <p class="rule-summary">Delay the introduction of regularized appointments to when current justices retire.*</p>
+      </div>
+
+      <fieldset class="justice-limits" aria-describedby="prospectiveHead phaseInHead">
+        <legend>Set tenure limits for current justices:</legend>
+        <div class="limit-mode" role="group" aria-label="Tenure limit type">
+          <button type="button" class="is-active" aria-pressed="true" data-mode="service">By years of service</button>
+          <button type="button" aria-pressed="false" data-mode="age">By retirement age**</button>
+        </div>
+        <div class="justice-limits-grid" id="justiceLimits"></div>
+      </fieldset>
+
+      <div class="chart-column prospective-body">
         <div class="chart-controls">
           <p>Size of the Court in <span class="court-year">2029</span>: <strong id="prospectiveCourtSize">9</strong></p>
         </div>
@@ -611,7 +670,16 @@
         </div>
       </div>
 
-      <div class="chart-column">
+      <div class="chart-column phase-in-body">
+        <div class="chart-controls">
+          <p>Size of the Court in <span class="court-year">2029</span>: <strong id="phaseInCourtSize">9</strong></p>
+        </div>
+        <div class="chart-wrap">
+          <svg id="phaseInChart" class="tenure-chart" role="img" aria-label="Phase-in term limits: Supreme Court justices by date of appointment and years of service"></svg>
+        </div>
+      </div>
+
+      <div class="chart-column retroactive-column">
         <h2>Retroactive</h2>
         <p class="rule-summary">Current justices retire when a new appointment occurs.*</p>
         <div class="chart-controls">
@@ -912,6 +980,7 @@
       }
 
       // Dots and labels
+      const labels = [];
       data.forEach(d => {
         const cx = x(d.start);
         const cy = y(d.years);
@@ -921,7 +990,7 @@
 
         const dot = createSvgElement("circle", {
           class: `justice-dot${d.isNew ? " new" : ""}${isReplaced ? " replaced" : ""}`,
-          cx, cy, r: 6,
+          cx, cy, r: d.isNew ? 4.5 : 6,
           tabindex: 0,
           "aria-label": `${d.name}, appointed ${formatDate(d.start)}, ${d.years.toFixed(1)} years${age ? `, age ${age}` : ""}${isReplaced ? ", replaced" : ""}`
         });
@@ -949,11 +1018,44 @@
           y: cy - 4,
           "text-anchor": left ? "end" : "start"
         });
-        // Label shows whichever measure the tenure limits are set by
-        if (limitMode === "service") label.textContent = `${d.label}, ${Math.floor(d.years)}`;
-        else label.textContent = age ? `${d.label}, ${age}` : d.label;
+        label.textContent = d.label;
         svg.appendChild(label);
+
+        const labelWidth = label.getComputedTextLength();
+        labels.push({
+          el: label,
+          x1: left ? cx - 10 - labelWidth : cx + 10,
+          x2: left ? cx - 10 : cx + 10 + labelWidth,
+          y: cy - 4
+        });
       });
+
+      spreadLabels(labels, margin.top + 10, margin.top + plotHeight);
+    }
+
+    // Nudge labels up or down until no two that share horizontal space
+    // sit closer than one line apart, keeping them inside the plot
+    function spreadLabels(labels, minY, maxY) {
+      const lineHeight = 13;
+      for (let pass = 0; pass < 100; pass++) {
+        let moved = false;
+        labels.sort((a, b) => a.y - b.y);
+        for (let i = 0; i < labels.length; i++) {
+          for (let j = i + 1; j < labels.length; j++) {
+            const a = labels[i];
+            const b = labels[j];
+            if (a.x2 < b.x1 || b.x2 < a.x1) continue;
+            const overlap = lineHeight - (b.y - a.y);
+            if (overlap <= 0) continue;
+            a.y -= overlap / 2;
+            b.y += overlap / 2;
+            moved = true;
+          }
+        }
+        labels.forEach(l => { l.y = Math.min(maxY, Math.max(minY, l.y)); });
+        if (!moved) break;
+      }
+      labels.forEach(l => l.el.setAttribute("y", l.y));
     }
 
     // Number of 4-year presidential terms added to the timeline (0-5); -1 means today
@@ -1009,6 +1111,46 @@
         return age !== null && limit !== null && age >= limit;
       }
       return d.years > limit;
+    }
+
+    // Date a current justice reaches their limit (null if it can't be known)
+    function limitDate(d) {
+      const limit = limitValues[limitMode].get(d.name);
+      if (limit === null || limit === undefined) return null;
+      if (limitMode === "age") return d.birthYear ? new Date(d.birthYear + limit, 0, 1) : null;
+      return new Date(d.start.getTime() + limit * MS_PER_YEAR);
+    }
+
+    // Phase-in: each retirement (current justices at their limit, new justices
+    // after 18 years) is filled right away by a new appointment, so the Court
+    // keeps its size. Returns everyone who served plus the set who retired.
+    function phaseInCourt(current, end) {
+      const justices = [...current];
+      const retired = new Set();
+      const queue = current.map(d => ({ d, date: limitDate(d) }));
+      let count = 0;
+
+      while (true) {
+        // Fill the earliest vacancy first so new justices are numbered in order
+        const due = queue
+          .filter(item => item.date && item.date <= end)
+          .sort((a, b) => a.date - b.date)[0];
+        if (!due) break;
+        queue.splice(queue.indexOf(due), 1);
+        retired.add(due.d.name);
+
+        count += 1;
+        const successor = {
+          name: `New justice ${count} (replaces ${due.d.label || due.d.name})`,
+          label: "",
+          start: due.date,
+          isNew: true
+        };
+        justices.push(successor);
+        queue.push({ d: successor, date: new Date(successor.start.getTime() + NEW_JUSTICE_TERM * MS_PER_YEAR) });
+      }
+
+      return { justices, retired };
     }
 
     function renderJusticeLimits(data) {
@@ -1076,7 +1218,6 @@
         // Current justices plus the new appointments from added terms
         let chartData = data;
 
-        // Both charts show the same data for now
         const renderCharts = () => {
           // Prospective: justices past their retirement limit leave the Court.
           // Current justices each have their own limit; new justices serve 18 years.
@@ -1084,6 +1225,11 @@
           const retired = new Set(chartData
             .filter(d => d.isNew ? d.years > NEW_JUSTICE_TERM : pastLimit(d, end))
             .map(d => d.name));
+          // Grey out the limit controls of justices who have already retired
+          data.forEach(d => {
+            const output = document.querySelector(`#justiceLimits output[data-name="${d.name}"]`);
+            if (output) output.closest(".limit-row").classList.toggle("is-retired", retired.has(d.name));
+          });
           renderChart("prospectiveChart", chartData, retired,
             limitMode === "age" ? "Retired at their age limit" : "Retired at their term limit");
           document.getElementById("prospectiveCourtSize").textContent = chartData.length - retired.size;
@@ -1099,6 +1245,13 @@
           ]);
           renderChart("retroactiveChart", chartData, replaced, "Replaced by a new appointment");
           document.getElementById("retroactiveCourtSize").textContent = chartData.length - replaced.size;
+
+          // Phase-in: same limits as Prospective, but every retirement is
+          // replaced immediately instead of on a fixed appointment schedule
+          const phaseIn = phaseInCourt(data, end);
+          updateTenure(phaseIn.justices);
+          renderChart("phaseInChart", phaseIn.justices, phaseIn.retired, "Retired and replaced by a new appointment");
+          document.getElementById("phaseInCourtSize").textContent = phaseIn.justices.length - phaseIn.retired.size;
 
           document.querySelectorAll(".court-year").forEach(el => { el.textContent = serviceEnd().getFullYear(); });
         };
