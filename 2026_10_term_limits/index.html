@@ -72,6 +72,20 @@
       text-rendering: optimizeLegibility;
     }
 
+    /* Temporary notice, stays pinned to the top while scrolling */
+    .test-banner {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      padding: 8px 16px;
+      background: #d0021b;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.3;
+      text-align: center;
+    }
+
     .chart-page {
       width: min(1320px, 100%);
       margin: 0 auto;
@@ -449,7 +463,7 @@
 
     .axis-label {
       font-size: 12px;
-      font-weight: 400;
+      font-weight: 700;
     }
 
     .tick-label {
@@ -457,10 +471,19 @@
       font-weight: 400;
     }
 
+    .tick-label.year-label {
+      font-size: 9px;
+    }
+
     .justice-label {
       font-size: 12px;
       font-weight: 400;
       pointer-events: none;
+      /* White halo behind the text keeps names readable over lines and dots */
+      stroke: #ffffff;
+      stroke-width: 3px;
+      stroke-linejoin: round;
+      paint-order: stroke;
     }
 
     .term-band {
@@ -484,7 +507,7 @@
         sans-serif
       );
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 400;
       fill: #000000;
       pointer-events: none;
     }
@@ -625,6 +648,7 @@
   </style>
 </head>
 <body>
+  <div class="test-banner" role="note">This is a test. The 3 charts only line up next to each other on widescreen.</div>
   <main class="chart-page">
     <h1 class="chart-title">18-Year Term Limits: Prospective and Retroactive Implementations</h1>
     <section class="term-timeline">
@@ -883,7 +907,7 @@
       const addYearLabel = (xPos, year) => {
         const labelY = plotBottom + axisDepth + 4;
         const label = createSvgElement("text", {
-          class: "tick-label",
+          class: "tick-label year-label",
           x: xPos + 4, y: labelY,
           transform: `rotate(-90 ${xPos + 4} ${labelY})`,
           "text-anchor": "end"
@@ -972,7 +996,7 @@
 
         const medianLabel = createSvgElement("text", {
           class: "median-label",
-          x: margin.left + 4, y: medianY - 5,
+          x: margin.left + 4, y: medianY + 13,
           "text-anchor": "start"
         });
         medianLabel.textContent = `Median tenure: ${median.toFixed(1)} years`;
