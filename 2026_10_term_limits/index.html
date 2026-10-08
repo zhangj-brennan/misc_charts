@@ -585,8 +585,8 @@
     <section class="term-timeline">
       <p class="term-timeline-label" id="termTimelineLabel">See the Court at the end of:</p>
       <div class="term-buttons" role="group" aria-labelledby="termTimelineLabel">
-        <button type="button" aria-pressed="false" data-terms="-1">Today</button>
-        <button type="button" class="is-active" aria-pressed="true" data-terms="0">Current presidential term (2029)</button>
+        <button type="button" class="is-active" aria-pressed="true" data-terms="-1">Today</button>
+        <button type="button" aria-pressed="false" data-terms="0">Current presidential term (2029)</button>
         <button type="button" aria-pressed="false" data-terms="1">Next term (2033)</button>
         <button type="button" aria-pressed="false" data-terms="2">2 (2037)</button>
         <button type="button" aria-pressed="false" data-terms="3">3 (2041)</button>
@@ -961,7 +961,7 @@
     }
 
     // Number of 4-year presidential terms added to the timeline (0-5); -1 means today
-    let termsAdded = 0;
+    let termsAdded = -1;
 
     function setupTermTimeline(onChange) {
       const buttons = [...document.querySelectorAll(".term-buttons button")];
