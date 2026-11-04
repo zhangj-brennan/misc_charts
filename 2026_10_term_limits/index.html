@@ -45,8 +45,9 @@
       --chart-muted: #000000;
       --chart-grid: #d9d9d9;
       --chart-baseline: #000000;
-      --chart-accent: #ed1c24;
-      --control-blue: #005daa;
+      --chart-accent: #000000;
+      --chart-highlight: #fff200;
+      --control-color: #000000;
       --chart-background: #ffffff;
       --chart-tooltip-background: #ffffff;
       --chart-border: #000000;
@@ -128,6 +129,22 @@
       margin: 24px 0 24px;
     }
 
+    /* Plain-language summary of the selected term; blank for Today */
+    .term-summary {
+      max-width: 680px;
+      /* Room for three lines, so the charts don't jump when the text appears */
+      min-height: 4.2em;
+      margin: 18px 0 12px;
+      color: var(--control-color);
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.4;
+    }
+
+    .term-summary strong {
+      font-weight: 700;
+    }
+
     .term-timeline-label {
       margin: 0 0 6px;
       color: #000000;
@@ -139,7 +156,7 @@
       display: inline-flex;
       flex-wrap: wrap;
       max-width: 100%;
-      border: 1px solid var(--control-blue);
+      border: 1px solid var(--control-color);
     }
 
     .term-buttons button {
@@ -149,7 +166,7 @@
       line-height: 1.2;
       border: 0;
       background: var(--chart-background);
-      color: var(--control-blue);
+      color: var(--control-color);
       font-family: inherit;
       font-size: 13px;
       font-weight: 700;
@@ -157,11 +174,16 @@
     }
 
     .term-buttons button + button {
-      border-left: 1px solid var(--control-blue);
+      border-left: 1px solid var(--control-color);
+    }
+
+    /* Terms before the selected one */
+    .term-buttons button.is-past {
+      background: #d9d9d9;
     }
 
     .term-buttons button.is-active {
-      background: var(--control-blue);
+      background: var(--control-color);
       color: #ffffff;
     }
 
@@ -170,7 +192,7 @@
       outline-offset: -4px;
     }
 
-    /* Rows: titles, shared limits panel, charts. Retroactive spans all three. */
+    /* Rows: shared limits panel, titles, charts. Retroactive's divider spans all three. */
     .chart-layout {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -178,12 +200,14 @@
       column-gap: 40px;
     }
 
-    .prospective-head { grid-area: 1 / 1; }
-    .phase-in-head { grid-area: 1 / 2; }
-    .chart-layout .justice-limits { grid-area: 2 / 1 / 3 / 3; }
+    .chart-layout .justice-limits { grid-area: 1 / 1 / 2 / 3; }
+    .prospective-head { grid-area: 2 / 1; }
+    .phase-in-head { grid-area: 2 / 2; }
+    .retroactive-head { grid-area: 2 / 3; }
     .prospective-body { grid-area: 3 / 1; }
     .phase-in-body { grid-area: 3 / 2; }
-    .retroactive-column { grid-area: 1 / 3 / 4 / 4; }
+    .retroactive-body { grid-area: 3 / 3; }
+    .retroactive-divider { grid-area: 1 / 3 / 4 / 4; pointer-events: none; }
 
     /* Headings and controls stay at the top; charts line up along the bottom */
     .chart-column {
@@ -224,10 +248,14 @@
 
     .chart-controls p {
       margin: 0;
+      padding: 1px 4px;
+      font-weight: 700;
+      color: var(--chart-accent);
+      background: var(--chart-highlight);
     }
 
     .chart-controls {
-      color: var(--control-blue);
+      color: var(--control-color);
     }
 
     .chart-controls input {
@@ -241,7 +269,7 @@
     }
 
     .justice-limits {
-      margin: 0 0 12px;
+      margin: 0 0 20px;
       padding: 0;
       border: 0;
     }
@@ -256,14 +284,14 @@
     .limit-mode {
       display: inline-flex;
       margin: 0 0 8px;
-      border: 1px solid var(--control-blue);
+      border: 1px solid var(--control-color);
     }
 
     .limit-mode button {
       padding: 1px 8px;
       border: 0;
       background: var(--chart-background);
-      color: var(--control-blue);
+      color: var(--control-color);
       font-family: inherit;
       font-size: 12px;
       font-weight: 700;
@@ -272,11 +300,11 @@
     }
 
     .limit-mode button + button {
-      border-left: 1px solid var(--control-blue);
+      border-left: 1px solid var(--control-color);
     }
 
     .limit-mode button.is-active {
-      background: var(--control-blue);
+      background: var(--control-color);
       color: #ffffff;
     }
 
@@ -303,14 +331,14 @@
     .limit-stepper {
       display: inline-flex;
       align-items: stretch;
-      border: 1px solid var(--control-blue);
+      border: 1px solid var(--control-color);
     }
 
     .limit-stepper button {
       width: 18px;
       padding: 0;
       border: 0;
-      background: var(--control-blue);
+      background: var(--control-color);
       color: #ffffff;
       font-family: inherit;
       font-size: 13px;
@@ -349,7 +377,7 @@
     .limit-stepper output {
       min-width: 22px;
       background: var(--chart-background);
-      color: var(--control-blue);
+      color: var(--control-color);
       font-size: 12px;
       font-weight: 700;
       line-height: 1.5;
@@ -357,14 +385,16 @@
     }
 
     /* Dividers centered in the 40px gap: Prospective | Phase-in only beside
-       the charts (they share the panel above), Retroactive full height */
+       the titles and charts (they share the panel above), Retroactive full height */
+    .phase-in-head,
     .phase-in-body,
-    .retroactive-column {
+    .retroactive-divider {
       position: relative;
     }
 
+    .phase-in-head::before,
     .phase-in-body::before,
-    .retroactive-column::before {
+    .retroactive-divider::before {
       content: "";
       position: absolute;
       top: 0;
@@ -406,33 +436,38 @@
         flex-direction: column;
       }
 
-      /* Stacked: Prospective (with the limits panel), then Phase-in, then Retroactive */
-      .prospective-head { order: 1; }
-      .chart-layout .justice-limits { order: 2; }
+      /* Stacked: limits panel, then Prospective, Phase-in, Retroactive */
+      .chart-layout .justice-limits { order: 1; }
+      .prospective-head { order: 2; }
       .prospective-body { order: 3; }
       .phase-in-head { order: 4; }
       .phase-in-body { order: 5; }
-      .retroactive-column { order: 6; }
+      .retroactive-head { order: 6; }
+      .retroactive-body { order: 7; }
+
+      .retroactive-divider,
+      .phase-in-body::before {
+        display: none;
+        content: none;
+      }
 
       .phase-in-head,
-      .retroactive-column {
+      .retroactive-head {
         position: relative;
         margin-top: 24px;
         padding-top: 24px;
       }
 
-      .phase-in-body::before {
-        content: none;
-      }
-
       /* Stacked: divider runs across the top instead */
       .phase-in-head::before,
-      .retroactive-column::before {
+      .retroactive-head::before {
         content: "";
         position: absolute;
         top: 0;
         right: 0;
+        bottom: auto;
         left: 0;
+        width: auto;
         height: 1px;
         background: #000000;
       }
@@ -525,7 +560,7 @@
     }
 
     .median-line {
-      stroke: var(--control-blue);
+      stroke: var(--chart-accent);
       stroke-width: 1.5;
       stroke-dasharray: 5 3;
     }
@@ -536,9 +571,14 @@
         "Benton Sans",
         sans-serif
       );
-      font-size: 11px;
+      font-size: 13px;
       font-weight: 700;
-      fill: var(--control-blue);
+      fill: var(--chart-accent);
+      pointer-events: none;
+    }
+
+    .median-highlight {
+      fill: var(--chart-highlight);
       pointer-events: none;
     }
 
@@ -549,13 +589,18 @@
       cursor: pointer;
     }
 
+    /* Color by group: red and blue for current justices, grey for new appointments */
+    .justice-dot.red { fill: #d7191c; }
+    .justice-dot.blue { fill: #2166ac; }
+
     .justice-dot.new {
-      fill: #000000;
+      fill: #8c8c8c;
       stroke: #ffffff;
     }
 
+    /* Retired or replaced: keep the group color, faded */
     .justice-dot.replaced {
-      fill: #cccccc;
+      fill-opacity: 0.3;
       stroke: #ffffff;
     }
 
@@ -662,28 +707,29 @@
         <button type="button" aria-pressed="false" data-terms="4">4 (2045)</button>
         <button type="button" aria-pressed="false" data-terms="5">5 (2049)</button>
       </div>
+      <p class="term-summary" id="termSummary" aria-live="polite"></p>
     </section>
 
-    <!-- Prospective and Phase-in share the tenure limits panel, which spans both columns -->
+    <!-- The tenure limits panel spans Prospective and Phase-in, above all three titles -->
     <section class="chart-layout">
+      <fieldset class="justice-limits" aria-describedby="prospectiveHead phaseInHead">
+        <legend>Set limits for current justices to control new Prospective and Delayed Phase-in appointments:</legend>
+        <div class="limit-mode" role="group" aria-label="Tenure limit type">
+          <button type="button" class="is-active" aria-pressed="true" data-mode="service">By years of service</button>
+          <button type="button" aria-pressed="false" data-mode="age">By retirement age*</button>
+        </div>
+        <div class="justice-limits-grid" id="justiceLimits"></div>
+      </fieldset>
+
       <div class="chart-head prospective-head" id="prospectiveHead">
         <h2>Prospective</h2>
-        <p class="rule-summary">Current justices retire when they want to. Regularized appointments start right away.*</p>
+        <p class="rule-summary">Current justices retire when they want to. Regularized appointments start right away. All new justices retire after 18 years.</p>
       </div>
 
       <div class="chart-head phase-in-head" id="phaseInHead">
         <h2>Delayed Phase-in</h2>
-        <p class="rule-summary">Current justices retire when they want to. Delay the introduction of regularized appointments to when current justices retire.*</p>
+        <p class="rule-summary">Current justices retire when they want to. Delay the introduction of regularized appointments to when current justices retire. All new justices retire after 18 years.</p>
       </div>
-
-      <fieldset class="justice-limits" aria-describedby="prospectiveHead phaseInHead">
-        <legend>Set tenure limits for current justices:</legend>
-        <div class="limit-mode" role="group" aria-label="Tenure limit type">
-          <button type="button" class="is-active" aria-pressed="true" data-mode="service">By years of service</button>
-          <button type="button" aria-pressed="false" data-mode="age">By retirement age**</button>
-        </div>
-        <div class="justice-limits-grid" id="justiceLimits"></div>
-      </fieldset>
 
       <div class="chart-column prospective-body">
         <div class="chart-controls">
@@ -703,9 +749,12 @@
         </div>
       </div>
 
-      <div class="chart-column retroactive-column">
+      <div class="chart-head retroactive-head" id="retroactiveHead">
         <h2>Retroactive</h2>
-        <p class="rule-summary">Current justices retire when a new appointment occurs.*</p>
+        <p class="rule-summary">Current justices retire when a new appointment occurs. All new justices retire after 18 years.</p>
+      </div>
+
+      <div class="chart-column retroactive-body">
         <div class="chart-controls">
           <p>Size of the Court in <span class="court-year">2029</span>: <strong id="retroactiveCourtSize">9</strong></p>
         </div>
@@ -713,10 +762,11 @@
           <svg id="retroactiveChart" class="tenure-chart" role="img" aria-label="Retroactive term limits: current Supreme Court justices by date of appointment and years of service"></svg>
         </div>
       </div>
+
+      <div class="retroactive-divider" aria-hidden="true"></div>
     </section>
 
-    <p class="chart-note">* All new justices retire after 18 years.</p>
-    <p class="chart-note">** Age based on birth year, adjustments TBD.</p>
+    <p class="chart-note">* Age based on birth year, adjustments TBD.</p>
 
     <div id="chartTooltip" class="chart-tooltip" role="tooltip"></div>
 
@@ -818,6 +868,14 @@
       return parts[parts.length - 1];
     }
 
+    // Current justices shown in red; the other current justices are blue
+    const RED_JUSTICES = new Set(["Thomas", "Roberts", "Alito", "Gorsuch", "Kavanaugh", "Barrett"]);
+
+    function colorClass(d) {
+      if (d.isNew) return "";
+      return RED_JUSTICES.has(d.label) ? " red" : " blue";
+    }
+
     function prepareData(rows, birthRows) {
       const birthYears = new Map(birthRows.map(row => [row.name, Number(row["birth year"])]));
       return rows
@@ -851,6 +909,59 @@
 
     // replaced: justices (by name) shown greyed out as having left the Court,
     // with replacedNote explaining why in the tooltip
+    // Chart transitions: set while a timeline click redraws the charts.
+    // Dots, name labels and the median marker carry a data-key; after a redraw
+    // each one slides from where its match was, and new ones fade in.
+    let animateCharts = false;
+    const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const TRANSITION_MS = 600;
+    const TRANSITION_EASING = "cubic-bezier(0.33, 1, 0.68, 1)";
+
+    // Where each keyed element sits now (including any transition in progress)
+    function snapshotChart(svg) {
+      const positions = new Map();
+      svg.querySelectorAll("[data-key]").forEach(el => {
+        const box = el.getBoundingClientRect();
+        positions.set(el.dataset.key, {
+          left: box.left,
+          top: box.top,
+          fillOpacity: getComputedStyle(el).fillOpacity
+        });
+      });
+      return positions;
+    }
+
+    function animateChart(svg, before) {
+      svg.querySelectorAll("[data-key]").forEach(el => {
+        const old = before.get(el.dataset.key);
+        if (!old) {
+          // New on this view: fade in once the others have mostly moved
+          el.animate([{ opacity: 0 }, { opacity: 1 }], {
+            duration: TRANSITION_MS / 2,
+            delay: TRANSITION_MS / 2,
+            easing: "ease-out",
+            fill: "backwards"
+          });
+          return;
+        }
+        const box = el.getBoundingClientRect();
+        const dx = old.left - box.left;
+        const dy = old.top - box.top;
+        const fillOpacity = getComputedStyle(el).fillOpacity;
+        const moved = Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5;
+        if (!moved && old.fillOpacity === fillOpacity) return;
+
+        const from = { transform: `translate(${dx}px, ${dy}px)` };
+        const to = { transform: "translate(0px, 0px)" };
+        // Justices retiring or returning fade between full and faded color
+        if (old.fillOpacity !== fillOpacity) {
+          from.fillOpacity = old.fillOpacity;
+          to.fillOpacity = fillOpacity;
+        }
+        el.animate([from, to], { duration: TRANSITION_MS, easing: TRANSITION_EASING });
+      });
+    }
+
     function renderChart(svgId, data, replaced = new Set(), replacedNote = "") {
       const svg = document.getElementById(svgId);
       const tooltip = document.getElementById("chartTooltip");
@@ -864,6 +975,7 @@
       const plotHeight = height - margin.top - margin.bottom;
       const plotBottom = margin.top + plotHeight;
 
+      const before = animateCharts && !REDUCED_MOTION.matches ? snapshotChart(svg) : null;
       svg.innerHTML = "";
       svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
 
@@ -970,7 +1082,7 @@
         x: margin.left + plotWidth / 2, y: height - 4,
         "text-anchor": "middle"
       });
-      xTitle.textContent = "Date of appointment";
+      xTitle.textContent = "Presidency";
       svg.appendChild(xTitle);
 
       const yTitle = createSvgElement("text", {
@@ -990,17 +1102,28 @@
 
         svg.appendChild(createSvgElement("line", {
           class: "median-line",
+          "data-key": "median-line",
           x1: margin.left, x2: margin.left + plotWidth,
           y1: medianY, y2: medianY
         }));
 
         const medianLabel = createSvgElement("text", {
           class: "median-label",
-          x: margin.left + 4, y: medianY + 13,
+          "data-key": "median-label",
+          x: margin.left + 4, y: medianY + 15,
           "text-anchor": "start"
         });
         medianLabel.textContent = `Median tenure: ${median.toFixed(1)} years`;
         svg.appendChild(medianLabel);
+
+        // Yellow highlight box behind the label
+        const box = medianLabel.getBBox();
+        svg.insertBefore(createSvgElement("rect", {
+          class: "median-highlight",
+          "data-key": "median-highlight",
+          x: box.x - 4, y: box.y - 1,
+          width: box.width + 8, height: box.height + 2
+        }), medianLabel);
       }
 
       // Dots and labels
@@ -1013,8 +1136,9 @@
         const age = ageAt(d, serviceEnd());
 
         const dot = createSvgElement("circle", {
-          class: `justice-dot${d.isNew ? " new" : ""}${isReplaced ? " replaced" : ""}`,
+          class: `justice-dot${colorClass(d)}${d.isNew ? " new" : ""}${isReplaced ? " replaced" : ""}`,
           cx, cy, r: d.isNew ? 4.5 : 6,
+          "data-key": `dot:${d.name}`,
           tabindex: 0,
           "aria-label": `${d.name}, appointed ${formatDate(d.start)}, ${d.years.toFixed(1)} years${age ? `, age ${age}` : ""}${isReplaced ? ", replaced" : ""}`
         });
@@ -1038,6 +1162,7 @@
 
         const label = createSvgElement("text", {
           class: `justice-label${isReplaced ? " replaced" : ""}`,
+          "data-key": `label:${d.name}`,
           x: left ? cx - 10 : cx + 10,
           y: cy - 4,
           "text-anchor": left ? "end" : "start"
@@ -1055,6 +1180,8 @@
       });
 
       spreadLabels(labels, margin.top + 10, margin.top + plotHeight);
+
+      if (before) animateChart(svg, before);
     }
 
     // Nudge labels up or down until no two that share horizontal space
@@ -1097,11 +1224,17 @@
           // Only the selected button is highlighted
           buttons.forEach(b => {
             const active = Number(b.dataset.terms) === termsAdded;
+            b.classList.toggle("is-past", Number(b.dataset.terms) < termsAdded);
             b.classList.toggle("is-active", active);
             b.setAttribute("aria-pressed", active);
           });
 
-          onChange(termsAdded);
+          animateCharts = true;
+          try {
+            onChange(termsAdded);
+          } finally {
+            animateCharts = false;
+          }
         });
       });
     }
@@ -1235,6 +1368,52 @@
       });
     }
 
+    // "A", "A and B", "A, B, and C"
+    function joinList(items) {
+      if (items.length < 3) return items.join(" and ");
+      return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+    }
+
+    // Group plans that share a value: [{ value, plans: [...] }], in first-seen order
+    function groupPlans(values) {
+      const groups = [];
+      values.forEach(({ plan, value }) => {
+        const group = groups.find(g => g.value === value);
+        if (group) group.plans.push(plan);
+        else groups.push({ value, plans: [plan] });
+      });
+      return groups;
+    }
+
+    function underPlans(plans) {
+      // Plan names are fixed strings set in this file, so they are safe as HTML
+      return `under the ${joinList(plans.map(plan => `<strong>${plan}</strong>`))} plan${plans.length > 1 ? "s" : ""}`;
+    }
+
+    // Summary under the timeline buttons. counts and sizes are
+    // [{ plan, value }] for each plan; baseSize is today's Court size.
+    function updateTermSummary(counts, sizes, baseSize) {
+      const el = document.getElementById("termSummary");
+      if (termsAdded < 0) {
+        el.innerHTML = "";
+        return;
+      }
+
+      const endYear = serviceEnd().getFullYear();
+      const who = termsAdded === 0
+        ? "The current president appoints"
+        : `The president serving ${endYear - 4}\u2013${endYear} appoints`;
+      const appointed = groupPlans(counts)
+        .map((g, i) => `${g.value}${i === 0 ? ` justice${g.value === 1 ? "" : "s"}` : ""} ${underPlans(g.plans)}`);
+
+      const sized = groupPlans(sizes).map((g, i) => {
+        const verb = g.value === baseSize ? "remains at" : g.value > baseSize ? "grows to" : "shrinks to";
+        return `${i === 0 ? "The Court " : ""}${verb} ${g.value} ${underPlans(g.plans)}`;
+      });
+
+      el.innerHTML = `${who} ${joinList(appointed)}. ${joinList(sized)}.`;
+    }
+
     Promise.all([CSV_FILE, BIRTH_YEARS_FILE].map(file => fetch(file).then(response => response.text())))
       .then(([text, birthText]) => {
         const data = prepareData(parseCSV(text), parseCSV(birthText));
@@ -1276,6 +1455,24 @@
           updateTenure(phaseIn.justices);
           renderChart("phaseInChart", phaseIn.justices, phaseIn.retired, "Retired and replaced by a new appointment");
           document.getElementById("phaseInCourtSize").textContent = phaseIn.justices.length - phaseIn.retired.size;
+
+          // Appointments made during the selected presidential term only
+          const termStart = new Date(end.getFullYear() - 4, end.getMonth(), end.getDate());
+          const inTerm = d => d.isNew && d.start >= termStart && d.start <= end;
+          const appointedOnSchedule = chartData.filter(inTerm).length;
+          updateTermSummary(
+            [
+              { plan: "Retroactive", value: appointedOnSchedule },
+              { plan: "Prospective", value: appointedOnSchedule },
+              { plan: "Delayed Phase-in", value: phaseIn.justices.filter(inTerm).length }
+            ],
+            [
+              { plan: "Retroactive", value: chartData.length - replaced.size },
+              { plan: "Prospective", value: chartData.length - retired.size },
+              { plan: "Delayed Phase-in", value: phaseIn.justices.length - phaseIn.retired.size }
+            ],
+            data.length
+          );
 
           document.querySelectorAll(".court-year").forEach(el => { el.textContent = serviceEnd().getFullYear(); });
         };
