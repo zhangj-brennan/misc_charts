@@ -1239,8 +1239,7 @@
       });
     }
 
-    // Default retirement limit per current justice: Thomas 40; under 18 years of
-    // service at the end of the current presidential term, 25; everyone else 30
+    // Default retirement limit per current justice: Thomas 40, everyone else 30
     // Limits are set either as years of service or as a retirement age
     const LIMIT_RANGE = {
       service: { min: 1, max: 99 },
@@ -1251,8 +1250,7 @@
     const limitValues = { service: new Map(), age: new Map() };
 
     function defaultLimit(d) {
-      if (d.name.includes("Thomas")) return 40;
-      return (SERVICE_END - d.start) / MS_PER_YEAR < 18 ? 25 : 30;
+      return d.name.includes("Thomas") ? 40 : 30;
     }
 
     // Default retirement age: the age at which the default service limit is reached
