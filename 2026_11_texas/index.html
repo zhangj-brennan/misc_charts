@@ -29,6 +29,7 @@
     .ci line { stroke: black; stroke-width: 1.25; }
     .axis text { font-family: "Benton"; font-size: 10px; fill: black; }
     .axis .domain { display: none; }
+    .axis text.axis-title { font-family: "BentonMedium"; font-size: 11px; text-anchor: middle; }
     .grid line { stroke: #dbdada; stroke-width: 1; }
     .grid .domain { display: none; }
     .row-hit { fill: transparent; cursor: pointer; }
@@ -79,7 +80,7 @@
       barGap: 4,
       groupGap: 22,
       groupLabelHeight: 20,
-      margin: { top: 24, right: 52, bottom: 8, left: 70 }
+      margin: { top: 4, right: 52, bottom: 52, left: 70 }
     };
 
     // Fallback copy of the CSV, used only if the file can't be fetched
@@ -175,14 +176,19 @@
       x.range([margin.left, width - margin.right]);
       svg.attr("viewBox", `0 0 ${width} ${height}`).attr("width", width).attr("height", height);
 
-      // Axis on top + gridlines
+      // Axis on bottom + gridlines + axis title
       const ticks = [0, 25, 50, 75, 100];
-      gAxis.attr("transform", `translate(0,${margin.top - 10})`)
-        .call(d3.axisTop(x).tickValues(ticks).tickFormat(d => d + "%").tickSize(0).tickPadding(2));
+      const plotBottom = height - margin.bottom;
+      gAxis.transition(t).attr("transform", `translate(0,${plotBottom + 12})`);
+      gAxis.call(d3.axisBottom(x).tickValues(ticks).tickFormat(d => d + "%").tickSize(0).tickPadding(4));
+      gAxis.selectAll("text.axis-title").data([0]).join("text")
+        .attr("class", "axis-title")
+        .attr("x", (x.range()[0] + x.range()[1]) / 2).attr("y", 30)
+        .text("Estimated vote share");
       gGrid.selectAll("line").data(ticks).join("line")
         .attr("x1", d => x(d)).attr("x2", d => x(d))
-        .attr("y1", margin.top - 6)
-        .transition(t).attr("y2", height - margin.bottom);
+        .attr("y1", margin.top)
+        .transition(t).attr("y2", plotBottom + 8);
 
       // Group headers
       gGroups.selectAll("text.group-label").data(groups, d => d.key)
