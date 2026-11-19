@@ -11,6 +11,10 @@
     #title, .panel { max-width: 600px; }
     .controls { justify-content: space-between; padding: 6px 0 10px; }
     .view-toggle { margin-right: 0; }
+    @media (max-width: 500px) {
+      .controls { align-items: flex-start; gap: 12px; }
+      .view-toggle { justify-content: flex-start; }
+    }
 
     .legend { flex-direction: row; align-items: center; gap: 16px; padding: 0; order: -1; }
     .legend-item {
