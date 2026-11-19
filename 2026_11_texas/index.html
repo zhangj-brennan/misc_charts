@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Texas Senate Vote by Race</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ---- chart-specific additions on top of style.css ---- */
+    #container { max-width: 600px; margin: 10px auto; padding: 0 10px; box-sizing: content-box; }
+    #title, .panel { max-width: 600px; }
+    .controls { justify-content: space-between; padding: 6px 0 10px; }
+    .view-toggle { margin-right: 0; }
+
+    .legend { flex-direction: row; align-items: center; gap: 16px; padding: 0; }
+    .legend-item {
+      display: flex; align-items: center; gap: 6px;
+      font-family: "BentonMedium"; font-size: 11px;
+    }
+    .legend-item .swatch { width: 14px; height: 14px; }
+    .legend-item .ci-key { width: 22px; height: 14px; }
+
+    .chart-wrap { position: relative; padding: 0; }
+
+    .group-label { font-family: "BentonStrong"; font-size: 13px; fill: black; }
+    .row-label { font-family: "Benton"; font-size: 12px; fill: black; dominant-baseline: central; text-anchor: end; }
+    .value-label { font-family: "BentonMedium"; font-size: 12px; fill: black; dominant-baseline: central; }
+    .bar { shape-rendering: crispEdges; }
+    .ci line { stroke: black; stroke-width: 1.25; }
+    .axis text { font-family: "Benton"; font-size: 10px; fill: black; }
+    .axis .domain { display: none; }
+    .grid line { stroke: #dbdada; stroke-width: 1; }
+    .grid .domain { display: none; }
+    .row-hit { fill: transparent; cursor: pointer; }
+    .row.is-dim .bar { opacity: 0.35; }
+
+    .footnote { margin-top: 14px; font-family: "Benton"; }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="title">
+      <h1>Estimated Senate Candidate Support Across All of Texas</h1>
+    </div>
+
+    <div class="panel">
+      <div class="controls">
+        <div class="view-toggle">
+          <span class="toggle-label active" data-view="candidate">By candidate</span>
+          <button class="switch" role="switch" aria-checked="false" aria-label="Group bars by race">
+            <span class="switch-knob"></span>
+          </button>
+          <span class="toggle-label" data-view="race">By race</span>
+        </div>
+        <div class="legend" id="legend"></div>
+      </div>
+
+      <div class="chart-wrap" id="chart"></div>
+
+      <div class="footnote">
+        <strong>Source:</strong> Brennan Center analysis.
+      </div>
+    </div>
+  </div>
+
+  <div class="tooltip" id="tooltip"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <script>
+    // ------------------------------------------------------------------
+    // CONFIG
+    // ------------------------------------------------------------------
+    const CONFIG = {
+      csv: "rpv_graph_data.csv",
+      candidates: ["Crockett", "Talarico"],
+      races: ["White", "Black", "Latino", "Asian"],
+      colors: { Crockett: "#9FCDE0", Talarico: "#007194" },
+      barHeight: 20,
+      barGap: 4,
+      groupGap: 22,
+      groupLabelHeight: 20,
+      margin: { top: 24, right: 52, bottom: 8, left: 70 }
+    };
+
+    // Fallback copy of the CSV, used only if the file can't be fetched
+    // (e.g. opening index.html directly from disk with file://).
+    const FALLBACK = `Estimate,lower,upper,Candidate,Race,Election
+16.82,16.44,17.22,Crockett,White,US Senator
+82.46,82.06,82.84,Talarico,White,US Senator
+94.74,94.41,95.07,Crockett,Black,US Senator
+4.44,4.12,4.76,Talarico,Black,US Senator
+37.67,37.4,37.93,Crockett,Latino,US Senator
+60.27,60.01,60.54,Talarico,Latino,US Senator
+8.75,6.86,10.67,Crockett,Asian,US Senator
+86.45,84.53,88.19,Talarico,Asian,US Senator`;
+
+    const parseRow = d => ({
+      estimate: +d.Estimate,
+      lower: +d.lower,
+      upper: +d.upper,
+      candidate: d.Candidate,
+      race: d.Race,
+      election: d.Election
+    });
+
+    let view = "candidate";
+    let data = [];
+
+    const container = d3.select("#chart");
+    const svg = container.append("svg");
+    const gGrid = svg.append("g").attr("class", "grid");
+    const gAxis = svg.append("g").attr("class", "axis");
+    const gGroups = svg.append("g");
+    const gRows = svg.append("g");
+    const tooltip = d3.select("#tooltip");
+    const x = d3.scaleLinear().domain([0, 100]);
+    const fmt = d3.format(".1f");
+
+    // Legend
+    const legend = d3.select("#legend");
+    CONFIG.candidates.forEach(c => {
+      const item = legend.append("div").attr("class", "legend-item");
+      item.append("span").attr("class", "swatch").style("background", CONFIG.colors[c]);
+      item.append("span").text(c);
+    });
+    const ciItem = legend.append("div").attr("class", "legend-item");
+    ciItem.append("svg").attr("class", "ci-key").attr("viewBox", "0 0 22 14")
+      .html('<line x1="3" x2="19" y1="7" y2="7" stroke="black" stroke-width="1.25"/><line x1="3" x2="3" y1="2" y2="12" stroke="black" stroke-width="1.25"/><line x1="19" x2="19" y1="2" y2="12" stroke="black" stroke-width="1.25"/>');
+    ciItem.append("span").text("Confidence interval");
+
+    // Toggle
+    const switchBtn = d3.select(".switch");
+    function setView(v) {
+      view = v;
+      switchBtn.attr("aria-checked", v === "race");
+      d3.selectAll(".toggle-label").classed("active", function () { return this.dataset.view === v; });
+      render(true);
+    }
+    switchBtn.on("click", () => setView(view === "candidate" ? "race" : "candidate"));
+    d3.selectAll(".toggle-label").style("cursor", "pointer")
+      .on("click", function () { setView(this.dataset.view); });
+
+    // Layout: compute group + row positions for the current view
+    function layout() {
+      const groupKeys = view === "candidate" ? CONFIG.candidates : CONFIG.races;
+      const rowKeys = view === "candidate" ? CONFIG.races : CONFIG.candidates;
+      const groupField = view === "candidate" ? "candidate" : "race";
+      const rowField = view === "candidate" ? "race" : "candidate";
+      const { barHeight, barGap, groupGap, groupLabelHeight, margin } = CONFIG;
+
+      let y = margin.top;
+      const groups = [];
+      const pos = new Map();
+      groupKeys.forEach((g, gi) => {
+        if (gi > 0) y += groupGap;
+        groups.push({ key: g, y });
+        y += groupLabelHeight;
+        rowKeys.forEach((r, ri) => {
+          const d = data.find(d => d[groupField] === g && d[rowField] === r);
+          if (d) {
+            pos.set(d, { y, label: r });
+            y += barHeight + (ri < rowKeys.length - 1 ? barGap : 0);
+          }
+        });
+      });
+      return { groups, pos, height: y + margin.bottom };
+    }
+
+    function render(animate) {
+      const width = Math.min(container.node().clientWidth, 600);
+      const { margin, barHeight } = CONFIG;
+      const { groups, pos, height } = layout();
+      const t = svg.transition().duration(animate ? 600 : 0).ease(d3.easeCubicInOut);
+
+      x.range([margin.left, width - margin.right]);
+      svg.attr("viewBox", `0 0 ${width} ${height}`).attr("width", width).attr("height", height);
+
+      // Axis on top + gridlines
+      const ticks = [0, 25, 50, 75, 100];
+      gAxis.attr("transform", `translate(0,${margin.top - 10})`)
+        .call(d3.axisTop(x).tickValues(ticks).tickFormat(d => d + "%").tickSize(0).tickPadding(2));
+      gGrid.selectAll("line").data(ticks).join("line")
+        .attr("x1", d => x(d)).attr("x2", d => x(d))
+        .attr("y1", margin.top - 6)
+        .transition(t).attr("y2", height - margin.bottom);
+
+      // Group headers
+      gGroups.selectAll("text.group-label").data(groups, d => d.key)
+        .join(
+          enter => enter.append("text").attr("class", "group-label")
+            .attr("x", 0).attr("y", d => d.y + 13).style("opacity", 0)
+            .text(d => d.key)
+            .call(e => e.transition(t).style("opacity", 1)),
+          update => update.call(u => u.transition(t).attr("y", d => d.y + 13)),
+          exit => exit.call(e => e.transition(t).style("opacity", 0).remove())
+        );
+
+      // Rows (keyed by candidate+race so bars glide between views)
+      const rows = gRows.selectAll("g.row").data(data, d => d.candidate + "|" + d.race)
+        .join(enter => {
+          const g = enter.append("g").attr("class", "row")
+            .attr("transform", d => `translate(0,${pos.get(d).y})`);
+          g.append("rect").attr("class", "row-hit");
+          g.append("rect").attr("class", "bar");
+          g.append("text").attr("class", "row-label");
+          const ci = g.append("g").attr("class", "ci");
+          ci.append("line").attr("class", "ci-span");
+          ci.append("line").attr("class", "ci-lo");
+          ci.append("line").attr("class", "ci-hi");
+          g.append("text").attr("class", "value-label");
+          return g;
+        });
+
+      rows.transition(t).attr("transform", d => `translate(0,${pos.get(d).y})`);
+
+      rows.select(".row-hit")
+        .attr("x", 0).attr("y", -1)
+        .attr("width", width).attr("height", barHeight + 2);
+
+      rows.select(".bar")
+        .attr("x", x(0)).attr("y", 0).attr("height", barHeight)
+        .attr("fill", d => CONFIG.colors[d.candidate])
+        .transition(t).attr("width", d => x(d.estimate) - x(0));
+
+      rows.select(".row-label")
+        .attr("x", margin.left - 8).attr("y", barHeight / 2)
+        .text(d => pos.get(d).label);
+
+      const mid = barHeight / 2, cap = barHeight * 0.35;
+      rows.select(".ci-span")
+        .attr("y1", mid).attr("y2", mid)
+        .transition(t).attr("x1", d => x(d.lower)).attr("x2", d => x(d.upper));
+      rows.select(".ci-lo")
+        .attr("y1", mid - cap).attr("y2", mid + cap)
+        .transition(t).attr("x1", d => x(d.lower)).attr("x2", d => x(d.lower));
+      rows.select(".ci-hi")
+        .attr("y1", mid - cap).attr("y2", mid + cap)
+        .transition(t).attr("x1", d => x(d.upper)).attr("x2", d => x(d.upper));
+
+      rows.select(".value-label")
+        .attr("y", mid)
+        .text(d => fmt(d.estimate) + "%")
+        .transition(t).attr("x", d => x(d.upper) + 6);
+
+      // Hover
+      rows
+        .on("mouseenter", function (event, d) {
+          rows.classed("is-dim", r => r !== d);
+          tooltip.html(
+            `<strong>${d.candidate}</strong> &middot; <span class="sub">${d.race} voters</span><br/>` +
+            `Estimate: <strong>${fmt(d.estimate)}%</strong><br/>` +
+            `<span class="sub">Confidence interval: ${fmt(d.lower)}% &ndash; ${fmt(d.upper)}%</span>`
+          ).style("opacity", 1);
+        })
+        .on("mousemove", event => {
+          tooltip.style("left", event.clientX + "px").style("top", event.clientY + "px");
+        })
+        .on("mouseleave", () => {
+          rows.classed("is-dim", false);
+          tooltip.style("opacity", 0);
+        });
+    }
+
+    function init(rows) {
+      data = rows.map(parseRow);
+      render(false);
+      window.addEventListener("resize", () => render(false));
+    }
+
+    d3.csv(CONFIG.csv)
+      .then(init)
+      .catch(() => init(d3.csvParse(FALLBACK)));
+  </script>
+</body>
+</html>
